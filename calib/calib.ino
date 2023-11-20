@@ -5,6 +5,7 @@ const int NUM_VALVES = 3;
 float valveStates[NUM_VALVES];  // Stores valve states (0.0 to 1.0)
 int calMin[NUM_VALVES];  // Stores min calibration values (microseconds)
 int calMax[NUM_VALVES];  // Stores max calibration values (microseconds)
+const int analogPins[NUM_VALVES] = {36,34,32}; 
 
 struct ValveData {
   float currentValue;
@@ -14,7 +15,7 @@ struct ValveData {
 };
 
 ValveData valveData[NUM_VALVES];
-bool artMode = false;
+bool artMode = 1;
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
@@ -28,8 +29,8 @@ void setup() {
 
   for (int i = 0; i < NUM_VALVES; i++) {
     valveStates[i] = 0.0;
-    calMin[i] = 500;  // Default values
-    calMax[i] = 2500;  // Default values
+    calMin[i] = 800;  // Default values
+    calMax[i] = 2200;  // Default values
   }
   Serial.println("Valve Controller Interface");
   Serial.println("Type commands and press enter to execute.");
@@ -39,7 +40,8 @@ void setup() {
 void loop() {
   if (artMode) {
     updateArtMode();
-    delay(30);  // Add a delay to throttle the output rate
+    readCurrentDraw();
+    delay(200);
   }
 
   static String commandBuffer;  // Holds the incoming command
@@ -89,6 +91,32 @@ void displayValves() {
     Serial.println(valveStates[i], 1);  // 1 decimal place precision
   }
 }
+
+void readCurrentDraw() {
+  float maxCurrent = 0.5;  // Assuming a max current of 0.5A for scaling, adjust as needed
+  for (int i = 0; i < NUM_VALVES; i++) {
+    int analogValue = analogRead(analogPins[i]);
+    float voltage = analogValue * (3.3 / 4095.0);  // Convert to voltage assuming a 3.3V reference and 12-bit ADC resolution
+    float current = voltage;  // Current in amperes, since R = 1 ohm
+    
+    // ASCII art for current draw
+    Serial.print("Valve ");
+    Serial.print(i + 1);
+    Serial.print(": |");
+    int position = (int)(current / maxCurrent * 10);  // Scale current to a range of 0 to 10 for ASCII art
+    for (int j = 0; j < 10; j++) {
+      if (j == position) {
+        Serial.print("X");
+      } else {
+        Serial.print("-");
+      }
+    }
+    Serial.print("| Current: ");
+    Serial.print(current);
+    Serial.println(" A");
+  }
+}
+
 
 void testValve(int valveNum) {
   float testPositions[3] = {0.0, 0.5, 1.0};
@@ -166,6 +194,9 @@ void processCommand(String command) {
     return;
   } else if (cmdType == 'r') {
     rangeTest();
+    return;
+  } else if (cmdType == 'i') {
+    readCurrentDraw();
     return;
   } else if (cmdType == 'a') {
     setupArtMode();
