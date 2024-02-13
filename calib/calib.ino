@@ -6,16 +6,16 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
-#define OLED_RESET     13 
+#define OLED_RESET     -1
 #define SCREEN_ADDRESS 0x3C 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 
 // SERVOS
-const int NUM_VALVES = 10;
+const int NUM_VALVES = 3;
 float valveStates[NUM_VALVES];      // Stores valve states (0.0 to 1.0)
 // int calMin[NUM_VALVES] = {2420, 2420, 2420, 2420}; // min flow calibration (highest number)
-int calMin[NUM_VALVES] = {2400,2400,2400,2400,2400,2400,2400,2400,2400,2400};
+int calMin[NUM_VALVES] = {2400,2400,2400};//,2400,2400,2400,2400,2400,2400,2400};
 int calMax[NUM_VALVES];             // max calibration values, define below using range from min (microseconds)
 const int calRange = 1000;          // msec also, low to high
 
@@ -24,13 +24,13 @@ const int INTERVAL_MIN = 300;
 
 // SOLENOID
 // const int SOLENOID_PINS[NUM_VALVES] = {22, 19, 17, 15};
-const int SOLENOID_PINS[NUM_VALVES] = {2,3,4,5,6,7,8,9,10,11};
+const int SOLENOID_PINS[NUM_VALVES] = {2,3,4};///,5,6,7,8,9,10,11};
 bool prevValveState = false;
 bool prevSolenoidState = false;
 bool currentSolenoidState = false;
 bool currentValveState = false;
 
-int solenoidDutyCycle[NUM_VALVES] = {40, 40, 40, 40, 40, 40, 40, 40, 40, 40};
+int solenoidDutyCycle[NUM_VALVES] = {40, 40, 40};//, 40, 40, 40, 40, 40, 40, 40};
 
 long startTime = 0;
 
@@ -71,6 +71,7 @@ void setValveState(int valveNum, float state, bool print = 0) {
 void setup() {
   Serial.begin(115200);
   delay(1000);
+  Serial.println("START");
   
   // start display
   while(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
@@ -80,6 +81,13 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(1);      // Normal 1:1 pixel scale
   display.setTextColor(SSD1306_WHITE); // Draw white text
+  display.display();
+  display.drawPixel(10, 10, SSD1306_WHITE);
+  display.display();
+  delay(1000);
+  display.drawPixel(20, 10, SSD1306_WHITE);
+  display.display();
+  drawDisplay();
 
   pwm.begin();
   Serial.println("servo pwm output begun");
@@ -123,6 +131,8 @@ void setup() {
   Serial.print("> ");  // Command line symbol
 }
 
+// void displayValves(bool force = 0);
+
 void loop() {
 
   if (artMode) {
@@ -134,7 +144,7 @@ void loop() {
   while (Serial.available() > 0) {
     char inChar = Serial.read();      // Read a character
     if (inChar == '\n') {             // Check for the end of the command
-      processCommand(commandBuffer);  // Process the complete command
+      // processCommand(commandBuffer);  // Process the complete command
       commandBuffer = "";             // Clear the command buffer
       Serial.print("> ");             // Display the command line symbol again
     } else {
@@ -176,7 +186,7 @@ void displayValves(bool force = 0) {
     Serial.print(valueToMsec(i, valveStates[i]));
     Serial.println(")");
   }
-  displayServoValves();
+  drawDisplay();
 
 }
 
@@ -227,6 +237,8 @@ void updateArtMode() {
   for (int i = 0; i < NUM_VALVES; i++) {
     if (currentTime >= valveData[i].nextTime) {
       // Update data for next interpolation cycle
+      
+      Serial.print(valveData[i].previousTime);
       valveData[i].previousTime = valveData[i].nextTime;
       valveData[i].nextTime = currentTime + random(INTERVAL_MIN, INTERVAL_MAX);
       valveData[i].currentValue = valveData[i].nextValue;
@@ -443,34 +455,25 @@ void processCommand(String command) {
   }
 }
 
-// void displayCurrentTextLine(String text) {
-//   display.setCursor(0,0); // Start at top-left corner
-//   display.clearDisplay(); // Clear the display buffer
-//   display.println(text);
-// }
-void drawDisplay() {
-  displayServoValves();
-  displaySolenoidValves();
-
-}
-void displayServoValves() {
+void drawDisplay() { // Add a default max height parameter
+  int maxRectHeight = SCREEN_HEIGHT / 2;
+  display.clearDisplay(); // Clear the display buffer
   int rectWidth = SCREEN_WIDTH / 10; // Divide screen width by number of valves
-  for (int i = 0; i < 10; i++) {
-    int rectHeight = valveStates[i] * (SCREEN_HEIGHT / 3 - 10); // Use 1/3 of screen height for servo valves
-    display.drawRect(i * rectWidth, SCREEN_HEIGHT / 3 - rectHeight, rectWidth, rectHeight, SSD1306_WHITE);
-    display.fillRect(i * rectWidth, SCREEN_HEIGHT / 3 - rectHeight, rectWidth, rectHeight, SSD1306_WHITE);
-  }
-}
 
-void displaySolenoidValves() {
-  int rectWidth = SCREEN_WIDTH / 10; // Divide screen width by number of valves
-  for (int i = 0; i < 10; i++) {
-    if (digitalRead(SOLENOID_PINS[i]) == HIGH ) {
-      // Solenoid ON - Draw filled rectangle
-      display.fillRect(i * rectWidth, SCREEN_HEIGHT * 2 / 3, rectWidth, SCREEN_HEIGHT / 3, SSD1306_WHITE);
+  for (int i = 0; i < NUM_VALVES; i++) {
+    // Calculate the rectangle's height based on the valve state and the maximum height
+    int rectHeight = valveStates[i] * maxRectHeight; 
+
+    // Calculate the Y position so the rectangle is at the bottom
+    int rectY = SCREEN_HEIGHT - rectHeight;
+
+    // If the solenoid is ON, fill the rectangle. Otherwise, just draw the outline.
+    if (digitalRead(SOLENOID_PINS[i]) == HIGH) {
+      display.fillRect(i * rectWidth, rectY, rectWidth, rectHeight, SSD1306_WHITE);
     } else {
-      // Solenoid OFF - Draw empty rectangle for clarity or leave it blank
-      display.drawRect(i * rectWidth, SCREEN_HEIGHT * 2 / 3, rectWidth, SCREEN_HEIGHT / 3, SSD1306_WHITE);
+      display.drawRect(i * rectWidth, rectY, rectWidth, rectHeight, SSD1306_WHITE);
     }
   }
+
+  display.display();
 }
