@@ -1,9 +1,21 @@
 #include <Adafruit_PWMServoDriver.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// set up display
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+
+#define OLED_RESET     13 
+#define SCREEN_ADDRESS 0x3C 
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
 
 // SERVOS
-const int NUM_VALVES = 4;
+const int NUM_VALVES = 10;
 float valveStates[NUM_VALVES];      // Stores valve states (0.0 to 1.0)
-int calMin[NUM_VALVES] = {2420, 2420, 2420, 2420}; // min flow calibration (highest number)
+// int calMin[NUM_VALVES] = {2420, 2420, 2420, 2420}; // min flow calibration (highest number)
+int calMin[NUM_VALVES] = {2400,2400,2400,2400,2400,2400,2400,2400,2400,2400};
 int calMax[NUM_VALVES];             // max calibration values, define below using range from min (microseconds)
 const int calRange = 1000;          // msec also, low to high
 
@@ -11,13 +23,14 @@ const int INTERVAL_MAX = 1400;
 const int INTERVAL_MIN = 300;
 
 // SOLENOID
-const int SOLENOID_PINS[NUM_VALVES] = {22, 19, 17, 15};
+// const int SOLENOID_PINS[NUM_VALVES] = {22, 19, 17, 15};
+const int SOLENOID_PINS[NUM_VALVES] = {2,3,4,5,6,7,8,9,10,11};
 bool prevValveState = false;
 bool prevSolenoidState = false;
 bool currentSolenoidState = false;
 bool currentValveState = false;
 
-int solenoidDutyCycle[NUM_VALVES] = {40, 40, 40, 40};
+int solenoidDutyCycle[NUM_VALVES] = {40, 40, 40, 40, 40, 40, 40, 40, 40, 40};
 
 long startTime = 0;
 
@@ -58,6 +71,16 @@ void setValveState(int valveNum, float state, bool print = 0) {
 void setup() {
   Serial.begin(115200);
   delay(1000);
+  
+  // start display
+  while(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    delay(200);
+  }
+  display.clearDisplay();
+  display.setTextSize(1);      // Normal 1:1 pixel scale
+  display.setTextColor(SSD1306_WHITE); // Draw white text
+
   pwm.begin();
   Serial.println("servo pwm output begun");
   pwm.setOscillatorFrequency(25200000);
@@ -153,6 +176,7 @@ void displayValves(bool force = 0) {
     Serial.print(valueToMsec(i, valveStates[i]));
     Serial.println(")");
   }
+  displayServoValves();
 
 }
 
@@ -419,3 +443,34 @@ void processCommand(String command) {
   }
 }
 
+// void displayCurrentTextLine(String text) {
+//   display.setCursor(0,0); // Start at top-left corner
+//   display.clearDisplay(); // Clear the display buffer
+//   display.println(text);
+// }
+void drawDisplay() {
+  displayServoValves();
+  displaySolenoidValves();
+
+}
+void displayServoValves() {
+  int rectWidth = SCREEN_WIDTH / 10; // Divide screen width by number of valves
+  for (int i = 0; i < 10; i++) {
+    int rectHeight = valveStates[i] * (SCREEN_HEIGHT / 3 - 10); // Use 1/3 of screen height for servo valves
+    display.drawRect(i * rectWidth, SCREEN_HEIGHT / 3 - rectHeight, rectWidth, rectHeight, SSD1306_WHITE);
+    display.fillRect(i * rectWidth, SCREEN_HEIGHT / 3 - rectHeight, rectWidth, rectHeight, SSD1306_WHITE);
+  }
+}
+
+void displaySolenoidValves() {
+  int rectWidth = SCREEN_WIDTH / 10; // Divide screen width by number of valves
+  for (int i = 0; i < 10; i++) {
+    if (digitalRead(SOLENOID_PINS[i]) == HIGH ) {
+      // Solenoid ON - Draw filled rectangle
+      display.fillRect(i * rectWidth, SCREEN_HEIGHT * 2 / 3, rectWidth, SCREEN_HEIGHT / 3, SSD1306_WHITE);
+    } else {
+      // Solenoid OFF - Draw empty rectangle for clarity or leave it blank
+      display.drawRect(i * rectWidth, SCREEN_HEIGHT * 2 / 3, rectWidth, SCREEN_HEIGHT / 3, SSD1306_WHITE);
+    }
+  }
+}
