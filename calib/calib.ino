@@ -1,6 +1,8 @@
 #include <Adafruit_PWMServoDriver.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+// #include <Adafruit_GFX.h>
+// #include <Adafruit_SSD1306.h>
+#include <PCF8575.h>
+
 
 // set up display
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -8,14 +10,16 @@
 
 #define OLED_RESET     -1
 #define SCREEN_ADDRESS 0x3C 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+// Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// PCF8575 GPIO module
+PCF8575 pcf8575(0x20);
 
 // SERVOS
-const int NUM_VALVES = 3;
+const int NUM_VALVES = 10;
 float valveStates[NUM_VALVES];      // Stores valve states (0.0 to 1.0)
 // int calMin[NUM_VALVES] = {2420, 2420, 2420, 2420}; // min flow calibration (highest number)
-int calMin[NUM_VALVES] = {2400,2400,2400};//,2400,2400,2400,2400,2400,2400,2400};
+int calMin[NUM_VALVES] = {2400,2400,2400,2400,2400,2400,2400,2400,2400,2400};
 int calMax[NUM_VALVES];             // max calibration values, define below using range from min (microseconds)
 const int calRange = 1000;          // msec also, low to high
 
@@ -24,13 +28,14 @@ const int INTERVAL_MIN = 300;
 
 // SOLENOID
 // const int SOLENOID_PINS[NUM_VALVES] = {22, 19, 17, 15};
-const int SOLENOID_PINS[NUM_VALVES] = {2,3,4};///,5,6,7,8,9,10,11};
+int SOLENOID_PINS[NUM_VALVES];// = {0,1,2,3,4,5,6,7,8,9};
 bool prevValveState = false;
 bool prevSolenoidState = false;
 bool currentSolenoidState = false;
 bool currentValveState = false;
 
-int solenoidDutyCycle[NUM_VALVES] = {40, 40, 40};//, 40, 40, 40, 40, 40, 40, 40};
+int solenoidDutyCycleInit = 30;
+int solenoidDutyCycle[NUM_VALVES];
 
 long startTime = 0;
 
@@ -68,26 +73,32 @@ void setValveState(int valveNum, float state, bool print = 0) {
   }
 }
 
+void setSolenoidState(int valveNum, bool state) {
+  pcf8575.write(valveNum, state); // valveNum is the pin number on PCF8575
+}
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
   Serial.println("START");
   
+  pcf8575.begin(); // Initialize PCF8575
+
   // start display
-  while(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    delay(200);
-  }
-  display.clearDisplay();
-  display.setTextSize(1);      // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE); // Draw white text
-  display.display();
-  display.drawPixel(10, 10, SSD1306_WHITE);
-  display.display();
-  delay(1000);
-  display.drawPixel(20, 10, SSD1306_WHITE);
-  display.display();
-  drawDisplay();
+  // while(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+  //   Serial.println(F("SSD1306 allocation failed"));
+  //   delay(200);
+  // }
+  // display.clearDisplay();
+  // display.setTextSize(1);      // Normal 1:1 pixel scale
+  // display.setTextColor(SSD1306_WHITE); // Draw white text
+  // display.display();
+  // display.drawPixel(10, 10, SSD1306_WHITE);
+  // display.display();
+  // delay(1000);
+  // display.drawPixel(20, 10, SSD1306_WHITE);
+  // display.display();
+  // drawDisplay();
 
   pwm.begin();
   Serial.println("servo pwm output begun");
@@ -95,15 +106,14 @@ void setup() {
   pwm.setPWMFreq(50);  // Analog servos run at ~50 Hz updates
 
   for (int i = 0; i < NUM_VALVES; i++) {
+    solenoidDutyCycle[i] = solenoidDutyCycleInit;
     valveStates[i] = 0.0;
     // calMin[i] = 2500;  // Default values
     calMax[i] = calMin[i] - calRange;  // Default values
   
     // enable and turn off solenoid outputs
-    pinMode(SOLENOID_PINS[i], OUTPUT);
-    digitalWrite(SOLENOID_PINS[i], LOW);  // Initially off
+    setSolenoidState(i, 0);  // Initially off
   }
-
 
   Serial.println("All zero");
   // Set each valve to zero
@@ -144,7 +154,7 @@ void loop() {
   while (Serial.available() > 0) {
     char inChar = Serial.read();      // Read a character
     if (inChar == '\n') {             // Check for the end of the command
-      // processCommand(commandBuffer);  // Process the complete command
+      processCommand(commandBuffer);  // Process the complete command
       commandBuffer = "";             // Clear the command buffer
       Serial.print("> ");             // Display the command line symbol again
     } else {
@@ -172,8 +182,9 @@ void displayValves(bool force = 0) {
     for (int j = 0; j <= 16; j++) {
       if (j == position) {
         Serial.print("X");
-      } else {
-        Serial.print(digitalRead(SOLENOID_PINS[i]) == HIGH ? "-" : " ");
+      }
+       else {
+        Serial.print(" ");
       }
     }
     Serial.print("| Cal: (");
@@ -186,7 +197,7 @@ void displayValves(bool force = 0) {
     Serial.print(valueToMsec(i, valveStates[i]));
     Serial.println(")");
   }
-  drawDisplay();
+  // drawDisplay();
 
 }
 
@@ -253,7 +264,7 @@ void updateArtMode() {
     if (currentTime >= valveData[i].solenoidToggleTime && currentTime < valveData[i].nextTime) {
       // Determine if the solenoid should be turned on based on the duty cycle
       bool shouldTurnOn = random(100) < solenoidDutyCycle[i];
-      digitalWrite(SOLENOID_PINS[i], shouldTurnOn ? HIGH : LOW);
+      setSolenoidState(i, shouldTurnOn);
       valveData[i].solenoidToggleTime = valveData[i].nextTime + random(0, (valveData[i].nextTime - currentTime));
       valveData[i].solenoidState = shouldTurnOn;
 
@@ -273,23 +284,44 @@ void demo_pulses() {
 
     // Open all solenoids, wait, and then close them
     for (int i = 0; i < NUM_VALVES; i++) {
-      digitalWrite(SOLENOID_PINS[i], HIGH);
+      setSolenoidState(i, 1);
     }
     displayValves(1);
     delay(500); // Adjust the delay as needed
 
     for (int i = 0; i < NUM_VALVES; i++) {
-      digitalWrite(SOLENOID_PINS[i], LOW);
+      setSolenoidState(i, 0);
     }
     displayValves(1);
     delay(500); // Adjust the delay as needed
   }
 }
 
+void demo_wave_solenoids() {
+  int length = 3;
+  // setSolenoidState((start + add) % NUM_VALVES, 1);
+
+  for(int start = 0; start < NUM_VALVES; start ++) {
+    for(int curr = 0; curr < NUM_VALVES; curr ++) {
+      // for(int add = 0; add < length; add ++) {
+      //   setSolenoidState((start + add) % NUM_VALVES, 1);
+      // }
+      if(curr == start) {
+        setSolenoidState(curr, 1);
+      } else {
+        setSolenoidState(curr, 0);
+      }
+      
+    }
+    delay(2000);
+  }
+}
+
+
 void demo_wave() {
   // Close all solenoids
   for (int i = 0; i < NUM_VALVES; i++) {
-    digitalWrite(SOLENOID_PINS[i], LOW);
+    setSolenoidState(i, 0);
   }
 
   for (int i = 0; i < NUM_VALVES; i++) {
@@ -298,7 +330,7 @@ void demo_wave() {
     delay(50);
 
     // Open solenoid
-    digitalWrite(SOLENOID_PINS[i], HIGH);
+    setSolenoidState(i, 1);
 
     // Change servo valve from 100% to 10% and back
     float step = .05;
@@ -315,7 +347,7 @@ void demo_wave() {
     }
 
     // Close solenoid
-    digitalWrite(SOLENOID_PINS[i], LOW);
+    setSolenoidState(i, 0);
     displayValves(1);
   }
 }
@@ -340,7 +372,7 @@ void demo_multiwave() {
 
   // Open solenoids
   for (int i = 0; i < NUM_VALVES; i++) {
-    digitalWrite(SOLENOID_PINS[i], HIGH);
+    setSolenoidState(i, 1);
   }
 
   for (int repeat = 0; repeat < repeatCount; repeat++) {
@@ -411,13 +443,16 @@ void processCommand(String command) {
   }
 
   if (cmdType == 'n') {
+    int number = command.charAt(1) - '0';
     int solenoidState = command.charAt(2) - '0';
     if (solenoidState == 0 || solenoidState == 1) {
-      for (int i = 0; i < NUM_VALVES; i++) {
-        digitalWrite(SOLENOID_PINS[i], solenoidState ? HIGH : LOW);
-        Serial.print("Solenoid state set to: ");
-        Serial.println(solenoidState ? "OPEN" : "CLOSED");
-      }
+      // for (int i = 0; i < NUM_VALVES; i++) {
+      setSolenoidState(number, solenoidState);
+      Serial.print("Solenoid ");
+      Serial.print(number);
+      Serial.print(" set: ");
+      Serial.println(solenoidState ? "OPEN" : "CLOSED");
+      // }
     } else {
       Serial.println("Invalid solenoid state. Use 0 for CLOSED, 1 for OPEN.");
     }
@@ -430,6 +465,7 @@ void processCommand(String command) {
       case 1: demo_pulses(); break;
       case 2: demo_wave(); break;
       case 3: demo_multiwave(); break;
+      case 4: demo_wave_solenoids(); break;
       default: Serial.println("Invalid demo mode number"); break;
     }
     return;
@@ -455,25 +491,26 @@ void processCommand(String command) {
   }
 }
 
-void drawDisplay() { // Add a default max height parameter
-  int maxRectHeight = SCREEN_HEIGHT / 2;
-  display.clearDisplay(); // Clear the display buffer
-  int rectWidth = SCREEN_WIDTH / 10; // Divide screen width by number of valves
+// void drawDisplay() { // Add a default max height parameter
+//   return;
+//   int maxRectHeight = SCREEN_HEIGHT / 2;
+//   display.clearDisplay(); // Clear the display buffer
+//   int rectWidth = SCREEN_WIDTH / 10; // Divide screen width by number of valves
 
-  for (int i = 0; i < NUM_VALVES; i++) {
-    // Calculate the rectangle's height based on the valve state and the maximum height
-    int rectHeight = valveStates[i] * maxRectHeight; 
+//   for (int i = 0; i < NUM_VALVES; i++) {
+//     // Calculate the rectangle's height based on the valve state and the maximum height
+//     int rectHeight = valveStates[i] * maxRectHeight; 
 
-    // Calculate the Y position so the rectangle is at the bottom
-    int rectY = SCREEN_HEIGHT - rectHeight;
+//     // Calculate the Y position so the rectangle is at the bottom
+//     int rectY = SCREEN_HEIGHT - rectHeight;
 
-    // If the solenoid is ON, fill the rectangle. Otherwise, just draw the outline.
-    if (digitalRead(SOLENOID_PINS[i]) == HIGH) {
-      display.fillRect(i * rectWidth, rectY, rectWidth, rectHeight, SSD1306_WHITE);
-    } else {
-      display.drawRect(i * rectWidth, rectY, rectWidth, rectHeight, SSD1306_WHITE);
-    }
-  }
+//     // If the solenoid is ON, fill the rectangle. Otherwise, just draw the outline.
+//     if (digitalRead(SOLENOID_PINS[i]) == HIGH) {
+//       display.fillRect(i * rectWidth, rectY, rectWidth, rectHeight, SSD1306_WHITE);
+//     } else {
+//       display.drawRect(i * rectWidth, rectY, rectWidth, rectHeight, SSD1306_WHITE);
+//     }
+//   }
 
-  display.display();
-}
+//   display.display();
+// }
