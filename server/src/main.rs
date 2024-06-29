@@ -1,6 +1,6 @@
 use kiss3d::light::Light;
 use kiss3d::window::Window;
-use nalgebra::{Point3, Translation3, UnitQuaternion, Vector3};
+use nalgebra::{Point3, Rotation3, Translation3, UnitQuaternion, UnitVector3, Vector3};
 use rand::random;
 
 fn main() {
@@ -90,6 +90,32 @@ fn main() {
             2,
         );
         q.set_color(random(), random(), random());
+    });
+
+    let face_center_vecs = faces
+        .iter()
+        .map(|face| {
+            (vertices[face[0]] + vertices[face[1]] + vertices[face[2]] + vertices[face[3]]) / 4.
+        })
+        .collect::<Vec<Vector3<f32>>>();
+
+    face_center_vecs.iter().for_each(|center| {
+        let mut c = window.add_cone(0.5, 2.);
+        c.append_rotation(
+            &Rotation3::rotation_between(
+                &UnitVector3::new_normalize(-Vector3::y()),
+                &UnitVector3::new_normalize(*center),
+            )
+            .map_or_else(
+                || UnitQuaternion::from_axis_angle(&Vector3::x_axis(), std::f32::consts::PI),
+                |r| UnitQuaternion::from_rotation_matrix(&r),
+            ),
+        );
+        c.set_points_size(10.0);
+        c.set_lines_width(1.0);
+        c.set_surface_rendering_activation(false);
+        c.append_translation(&Translation3::from(*center));
+        c.set_color(1., 0.8, 0.2);
     });
 
     let mut c = window.add_cube(1.0, 1.0, 1.0);
