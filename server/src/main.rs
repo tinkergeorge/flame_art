@@ -1,5 +1,4 @@
-use kiss3d::light::Light;
-use kiss3d::window::Window;
+use kiss3d::{camera::ArcBall, light::Light, window::Window};
 use nalgebra::{Point3, Rotation3, Translation3, UnitQuaternion, UnitVector3, Vector3};
 use rand::random;
 
@@ -120,5 +119,9 @@ fn main() {
 
     window.set_light(Light::StickToCamera);
 
-    while window.render() {}
+    let mut arc_ball_camera = ArcBall::new(Point3::new(6.0f32, 6., 6.), Point3::origin());
+
+    while !window.should_close() {
+        window.render_with_camera(&mut arc_ball_camera);
+    }
 }
