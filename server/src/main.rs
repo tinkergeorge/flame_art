@@ -76,8 +76,6 @@ fn main() {
         [27, 11, 5, 21],
     ];
 
-    // face_center_vecs.
-
     let mut window = Window::new("Light Curve Simulator");
     faces.iter().for_each(|face| {
         let mut q = window.add_quad_with_vertices(
@@ -91,14 +89,14 @@ fn main() {
         q.set_color(random(), random(), random());
     });
 
-    let face_center_vecs = faces
+    let face_center_vectors = faces
         .iter()
         .map(|face| {
             (vertices[face[0]] + vertices[face[1]] + vertices[face[2]] + vertices[face[3]]) / 4.
         })
         .collect::<Vec<Vector3<f32>>>();
 
-    face_center_vecs.iter().for_each(|center| {
+    face_center_vectors.iter().for_each(|center| {
         let mut c = window.add_cone(0.5, 2.);
         c.append_rotation(
             &Rotation3::rotation_between(
