@@ -111,7 +111,7 @@ fn main() {
         c.set_points_size(10.0);
         c.set_lines_width(1.0);
         c.set_surface_rendering_activation(false);
-        c.append_translation(&Translation3::from(*center));
+        c.append_translation(&Translation3::from((*center) * 1.5));
         c.set_color(1., 0.8, 0.2);
     });
 
