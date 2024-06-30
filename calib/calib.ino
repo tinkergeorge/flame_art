@@ -5,7 +5,7 @@
 
 #include <ArtnetWifi.h>
 
-IPAddress ip(192, 168, 1, 208);
+IPAddress ip(192, 168, 1, 201);
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 const char *ssid = "TODO";
@@ -58,7 +58,9 @@ struct ValveData
 };
 
 ValveData valveData[NUM_VALVES];
-bool artMode = 1;
+bool artMode = true;
+
+bool artnetMode = false;
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
@@ -144,6 +146,9 @@ void setup()
   delay(1000);
   Serial.println("START");
 
+  // Start trying to connect to wifi
+  beginWifi();
+
   pcf8575.begin(); // Initialize PCF8575
 
   // start display
@@ -211,11 +216,20 @@ void setup()
 
 void loop()
 {
-
   if (artMode)
   {
-    updateArtMode();
-    delay(10); // Add a delay to throttle the output rate
+    if (!isWifiConnected())
+    {
+      updateArtMode();
+      delay(10);
+      beginWifi();
+    }
+    else
+    {
+      artMode = false;
+      artnetMode = true;
+      beginArtnet();
+    }
   }
 
   static String commandBuffer; // Holds the incoming command
@@ -233,7 +247,12 @@ void loop()
       commandBuffer += inChar; // Add the character to the command buffer
     }
   }
-  delay(1);
+
+  delay(1); // This delay is important, do not delete
+  if (artnetMode)
+  {
+    receiveArtnet();
+  }
 }
 
 int displayCounter = 0; // Add this global variable at the top of your code
