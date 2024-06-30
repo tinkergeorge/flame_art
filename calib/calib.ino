@@ -135,8 +135,8 @@ void onDmxFrame(uint16_t universe, uint16_t numBytesReceived, uint8_t sequence, 
     uint8_t solenoidByte = data[valveDataStart];
     uint8_t servoByte = data[valveDataStart + 3];
     float servoByteFloat = (float)servoByte;
-    setSolenoidState(i, solenoidByte > 127);
-    setValveState(i, servoByteFloat / 255.0);
+    setSolenoidState(valveNum, solenoidByte > 127);
+    setValveState(valveNum, servoByteFloat / 255.0);
   }
 }
 
@@ -518,10 +518,11 @@ void demo_multiwave()
   }
 }
 
-float lerp(float a, float b, float t)
-{
-  return a + t * (b - a);
-}
+// Was getting compile errors with this here due to conflict with std::lerp
+// float lerp(float a, float b, float t)
+// {
+//   return a + t * (b - a);
+// }
 
 void processCommand(String command)
 {
