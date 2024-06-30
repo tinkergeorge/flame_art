@@ -416,6 +416,35 @@ void updateArtMode()
   displayValves();
 }
 
+void demo_pulses_short()
+{
+  for (float fraction = 0.1; fraction <= 1.0; fraction += 0.1)
+  {
+    // Set all servo valves to the fraction and wait
+    for (int i = 0; i < NUM_VALVES; i++)
+    {
+      setValveState(i, fraction);
+    }
+    displayValves(1);
+    delay(500); // Adjust the delay as needed
+
+    // Open all solenoids, wait, and then close them
+    for (int i = 0; i < NUM_VALVES; i++)
+    {
+      setSolenoidState(i, 1);
+    }
+    displayValves(1);
+    delay(100); // Adjust the delay as needed
+
+    for (int i = 0; i < NUM_VALVES; i++)
+    {
+      setSolenoidState(i, 0);
+    }
+    displayValves(1);
+    delay(500); // Adjust the delay as needed
+  }
+}
+
 void demo_pulses()
 {
   for (float fraction = 0.1; fraction <= 1.0; fraction += 0.1)
@@ -655,6 +684,9 @@ void processCommand(String command)
       break;
     case 4:
       demo_wave_solenoids();
+      break;
+    case 4:
+      demo_pulses_short();
       break;
     default:
       Serial.println("Invalid demo mode number");
