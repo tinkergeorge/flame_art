@@ -3,6 +3,15 @@
 // #include <Adafruit_SSD1306.h>
 #include <PCF8575.h>
 
+#include <ArtnetWifi.h>
+
+IPAddress ip(192, 168, 1, 208);
+IPAddress gateway(192, 168, 1, 1);
+IPAddress subnet(255, 255, 255, 0);
+const char *ssid = "TODO";
+const char *password = "TODO";
+ArtnetWifi artnet;
+
 // set up display
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -80,6 +89,53 @@ void setValveState(int valveNum, float state, bool print = 0)
 void setSolenoidState(int valveNum, bool state)
 {
   pcf8575.write(valveNum, state); // valveNum is the pin number on PCF8575
+}
+
+// This should be called repeatedly, with a delay of at least 1ms between calls, until
+// `isWifiConnected` returns true.
+void beginWifi()
+{
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  WiFi.useStaticBuffers(true);
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+  WiFi.setMinSecurity(WIFI_AUTH_WEP);
+  WiFi.config(ip, gateway, subnet);
+  WiFi.begin(ssid, password);
+}
+// Returns true when we are ready to start receiving artnet.
+bool isWifiConnected()
+{
+  return WiFi.status() == WL_CONNECTED;
+}
+// This must be called after wifi is connected
+void beginArtnet()
+{
+  artnet.begin();
+  artnet.setArtDmxCallback(onDmxFrame);
+}
+// This must be called repeatedly in a loop, with a delay of at least 1ms between calls.
+void receiveArtnet()
+{
+  artnet.read();
+}
+// Do not call this directly, it will be called when you call `receiveArtnet`.
+void onDmxFrame(uint16_t universe, uint16_t numBytesReceived, uint8_t sequence, uint8_t *data)
+{
+  // Using 2 "RGB" pixels per nozzle - first for solenoid, second for servo. Maps to 6 bytes per
+  // nozzle, and we will only look at the red channel for each.
+  int numValvesReceived = min(numBytesReceived / 6, NUM_VALVES);
+  for (int valveNum = 0; valveNum < numValvesReceived; valveNum++)
+  {
+    int valveDataStart = valveNum * 6;
+    uint8_t solenoidByte = data[valveDataStart];
+    uint8_t servoByte = data[valveDataStart + 3];
+    float servoByteFloat = (float)servoByte;
+    setSolenoidState(i, solenoidByte > 127);
+    setValveState(i, servoByteFloat / 255.0);
+  }
 }
 
 void setup()
