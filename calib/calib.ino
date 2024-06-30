@@ -92,6 +92,40 @@ void setValveState(int valveNum, float state, bool print = 0)
 
 void setSolenoidState(int valveNum, bool state)
 {
+  // switch (valveNum)
+  // {
+  // case 0:
+  //   valveNum = 2;
+  //   break;
+  // case 1:
+  //   valveNum = 3;
+  //   break;
+  // case 2:
+  //   valveNum = 6;
+  //   break;
+  // case 3:
+  //   valveNum = 1;
+  //   break;
+  // case 4:
+  //   valveNum = 0;
+  //   break;
+  // case 5:
+  //   valveNum = 9;
+  //   break;
+  // case 6:
+  //   valveNum = 8;
+  //   break;
+  // case 7:
+  //   valveNum = 5;
+  //   break;
+  // case 8:
+  //   valveNum = 4;
+  //   break;
+  // case 9:
+  //   valveNum = 7;
+  //   break;
+  // }
+
   pcf8575.write(valveNum, state); // valveNum is the pin number on PCF8575
 }
 
