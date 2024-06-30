@@ -76,6 +76,9 @@ fn main() {
         [27, 11, 5, 21],
     ];
 
+    let quaternion_to_rotate_5_pyramid_to_top =
+        UnitQuaternion::rotation_between(&vertices[8], &Vector3::y()).unwrap();
+
     let mut window = Window::new("Light Curve Simulator");
     faces.iter().for_each(|face| {
         let mut q = window.add_quad_with_vertices(
@@ -86,6 +89,7 @@ fn main() {
             2,
             2,
         );
+        q.append_rotation(&quaternion_to_rotate_5_pyramid_to_top);
         q.set_color(random(), random(), random());
     });
 
@@ -108,6 +112,7 @@ fn main() {
         c.set_lines_width(1.0);
         c.set_surface_rendering_activation(false);
         c.append_translation(&Translation3::from((*center) * 1.5));
+        c.append_rotation(&quaternion_to_rotate_5_pyramid_to_top);
         c.set_color(1., 0.8, 0.2);
     });
 
