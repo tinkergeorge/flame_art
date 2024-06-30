@@ -8,8 +8,8 @@
 IPAddress ip(192, 168, 1, 201);
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
-const char *ssid = "TODO";
-const char *password = "TODO";
+const char *ssid = "lightcurve";
+const char *password = "curvelight";
 ArtnetWifi artnet;
 
 // set up display
@@ -518,11 +518,11 @@ void demo_multiwave()
   }
 }
 
-// Was getting compile errors with this here due to conflict with std::lerp
-// float lerp(float a, float b, float t)
-// {
-//   return a + t * (b - a);
-// }
+// Depending on the compiler version used to compile, this function may cause compile error due to conflict with std::lerp
+float lerp(float a, float b, float t)
+{
+  return a + t * (b - a);
+}
 
 void processCommand(String command)
 {
