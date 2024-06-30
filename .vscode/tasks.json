@@ -6,9 +6,9 @@
       "command": "cargo",
       "args": ["run"],
       "problemMatcher": ["$rustc"],
-      "label": "Server: cargo run",
+      "label": "Sim: cargo run",
       "options": {
-        "cwd": "${workspaceFolder}/server"
+        "cwd": "${workspaceFolder}/sim"
       },
       "group": {
         "kind": "build",
