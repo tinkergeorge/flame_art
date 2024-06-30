@@ -92,6 +92,7 @@ fn main() {
     let face_center_vectors = faces
         .iter()
         .map(|face| {
+            // Average the vertex vectors to create the vector to the center of the face
             (vertices[face[0]] + vertices[face[1]] + vertices[face[2]] + vertices[face[3]]) / 4.
         })
         .collect::<Vec<Vector3<f32>>>();
@@ -99,14 +100,9 @@ fn main() {
     face_center_vectors.iter().for_each(|center| {
         let mut c = window.add_cone(0.5, 2.);
         c.append_rotation(
-            &Rotation3::rotation_between(
-                &UnitVector3::new_normalize(-Vector3::y()),
-                &UnitVector3::new_normalize(*center),
-            )
-            .map_or_else(
-                || UnitQuaternion::from_axis_angle(&Vector3::x_axis(), std::f32::consts::PI),
-                |r| UnitQuaternion::from_rotation_matrix(&r),
-            ),
+            &UnitQuaternion::rotation_between(&(-Vector3::y()), center).unwrap_or_else(|| {
+                UnitQuaternion::from_axis_angle(&Vector3::x_axis(), std::f32::consts::PI)
+            }),
         );
         c.set_points_size(10.0);
         c.set_lines_width(1.0);
