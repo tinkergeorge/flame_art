@@ -25,25 +25,12 @@
 import socket
 from time import sleep
 import argparse
+import json
 from threading import Thread
 import math
 
-
-
-CONTROLLERS = [ 
-                {   "name": "1",
-                    "ip": "192.168.13.100",
-                    "nozzles": 10,
-                    "offset": 0 },
-                {   "name": "2",
-                    "ip": "192.168.13.101",
-                    "nozzles": 10,
-                    "offset": 10 },
-                {   "name": "3",
-                    "ip": "192.168.13.102",
-                    "nozzles": 10,
-                    "offset": 20 }
-                ]
+# filled in by config file
+CONTROLLERS = None
 
 # there is a numbering system for the nozzles.
 # Each offset of the 30 is a very specific one.
@@ -63,6 +50,8 @@ ARTNET_PORT = 6454
 ARTNET_UNIVERSE = 0
 ARTNET_HEADER_SIZE = 18
 
+DEBUG = False
+
 # artnet packet format: ( 18 bytes )
 # 8 bytes header: 'Art-Net0'
 # 2 bytes: 00 0x50 (artdmx)
@@ -75,9 +64,14 @@ ARTNET_HEADER_SIZE = 18
 
 def artnet_packet(universe: int, sequence: int, packet: bytearray ):
 
+    # print(f'Artnet_packet: building') if DEBUG else None
+
     if len(packet) < 18:
         print(f'Artnet Packet: must provide packet at least 18 bytes long, skipping')
+        raise Exception("artnet packet builder: too short input packet")
         return
+
+    # print_bytearray(packet)
 
     packet[0:12] = b'Art-net\x00\x00\x50\x00\x14'
 
@@ -86,8 +80,11 @@ def artnet_packet(universe: int, sequence: int, packet: bytearray ):
     packet[14] = universe & 0xff
     packet[15] = (universe >> 8) & 0xff
 
-    packet[16] = len(packet) >> 8 & 0xff
-    packet[17] = len(packet) & 0xff
+    l = len(packet) - ARTNET_HEADER_SIZE
+    packet[16] = (l >> 8) & 0xff
+    packet[17] = l & 0xff
+
+    # print_bytearray(packet)
 
 SOCK = None
 SEQUENCE = 0
@@ -97,6 +94,9 @@ def transmit() -> None:
 
     global SEQUENCE, SOCK
 
+    print(f'transmit') if DEBUG else None
+
+
     for c in CONTROLLERS:
 
         # allocate the packet TODO allocate a packet once
@@ -104,6 +104,10 @@ def transmit() -> None:
 
         # fill in the artnet part
         artnet_packet(ARTNET_UNIVERSE, SEQUENCE, packet)
+
+        if DEBUG:
+            print('transmit: packet after artnet')
+            print_bytearray(packet)
 
         # fill in the data bytes
         offset = c['offset']
@@ -115,13 +119,14 @@ def transmit() -> None:
             if (FLOWS[i+offset] < 0.0) or (FLOWS[i+offset] > 1.0):
                 print(f'flow at {i+offset} out of range {FLOWS[i+offset]} skipping')
 
-            packet[i] = ACTIVES[i+offset]
-            packet[i+1] = math.floor(FLOWS[i+offset] * 255)
+            packet[ARTNET_HEADER_SIZE + i] = ACTIVES[i+offset]
+            packet[ARTNET_HEADER_SIZE + i+1] = math.floor(FLOWS[i+offset] * 255)
 
         # transmit
+        print(f' sending packet to {c["ip"]} for {c["name"]}') if DEBUG else None
         SOCK.sendto(packet, (c['ip'], ARTNET_PORT))
 
-        SEQUENCE = SEQUENCE + 1
+    SEQUENCE = SEQUENCE + 1
 
 def network_init() -> None:
 
@@ -183,7 +188,7 @@ def pattern_pulse():
 
     print(f'Starting Pulse Pattern')
 
-    wait = 500
+    wait = 0.500
 
     # open the valves in steps
     for f in range(0,11):
@@ -206,7 +211,7 @@ def pattern_pulse():
 def pattern_wave():
 
     print('Starting Wave Pattern')
-    wait = 500
+    wait = 0.500
 
     # Close all solenoids
     fill_actives(0)
@@ -221,7 +226,7 @@ def pattern_wave():
     # Open solenoids
     fill_actives(1)
     transmit()
-    sleep(100)
+    sleep(0.1)
 
     # Change servo valve from 100% to 10% and back
     step = .05;
@@ -246,7 +251,7 @@ def pattern_wave():
 
 def pattern_wave_solenoids():
 
-    period = 200
+    period = 0.200
 
     print(f'Staring wave solenoids pattern')
 
@@ -254,7 +259,7 @@ def pattern_wave_solenoids():
     fill_actives(0)
     fill_flows(1.0)
     transmit()
-    sleep(100)
+    sleep(0.100)
 
     # go through all the solonoids one by one
     for i in range(NOZZLES):
@@ -302,7 +307,7 @@ def pattern_multiwave():
   fill_flows(0.0)
   fill_actives(1)
   transmit()
-  sleep(100)
+  sleep(0.100)
 
   # overlay the pattern
   fill_flows(0.0)
@@ -310,7 +315,7 @@ def pattern_multiwave():
     for j in range(waveSteps):
         FLOWS[ (i + j) % len(FLOWS)] = pattern[j]
     transmit()
-    sleep(200)
+    sleep(0.200)
 
   # Open solenoids close valves
   fill_flows(0.0)
@@ -337,6 +342,8 @@ def pattern_multipattern():
 def arg_init():
     parser = argparse.ArgumentParser(prog='flame_test', description='Send ArtNet packets to the Color Curve for testing')
     parser.add_argument('--host', type=str, help='IP address for destination')
+    parser.add_argument('--config','-c', type=str, default="flame_test.cnf", help='Input shrub JSON configuration file')
+
     parser.add_argument('--pattern', '-p', type=str, help='pulse wave multiwaveone of: pulse, wave, soliwave, multiwave, multipatternpalette, hsv, order, shrub_rank, shrub_rank_order, cube_order, cube_color, black')
     parser.add_argument('--fps', '-f', default=15, type=int, help='frames per second')
     parser.add_argument('--repeat', '-r', default=1, type=int, help="number of times to run pattern")
@@ -358,6 +365,11 @@ def main():
     args = arg_init()
 
     network_init()
+
+    # Read configuration file. (They're json files)
+    global CONTROLLERS
+    with open(args.config) as ftc_f:
+        CONTROLLERS = json.load(ftc_f)  # XXX catch exceptions here.
 
     if not args.pattern:
         for _ in range(args.repeat):
