@@ -105,25 +105,25 @@ def transmit() -> None:
         # fill in the artnet part
         artnet_packet(ARTNET_UNIVERSE, SEQUENCE, packet)
 
-        if DEBUG:
-            print('transmit: packet after artnet')
-            print_bytearray(packet)
-
         # fill in the data bytes
         offset = c['offset']
         for i in range(c['nozzles']):
+
             # validation. Could make optional.
-            if (ACTIVES[i+offset] < 0) or (ACTIVES[i+offset] > 1):
+            if (DEBUG and ( ACTIVES[i+offset] < 0) or (ACTIVES[i+offset] > 1)):
                 print(f'active at {i+offset} out of range {ACTIVES[i+offset]} skipping')
                 return
-            if (FLOWS[i+offset] < 0.0) or (FLOWS[i+offset] > 1.0):
+            if (DEBUG and (FLOWS[i+offset] < 0.0) or (FLOWS[i+offset] > 1.0)):
                 print(f'flow at {i+offset} out of range {FLOWS[i+offset]} skipping')
 
-            packet[ARTNET_HEADER_SIZE + i] = ACTIVES[i+offset]
-            packet[ARTNET_HEADER_SIZE + i+1] = math.floor(FLOWS[i+offset] * 255)
+            packet[ARTNET_HEADER_SIZE + (i*2) ] = ACTIVES[i+offset]
+            packet[ARTNET_HEADER_SIZE + (i*2) + 1] = math.floor(FLOWS[i+offset] * 255.0 )
 
         # transmit
-        print(f' sending packet to {c["ip"]} for {c["name"]}') if DEBUG else None
+        if DEBUG:
+            print(f' sending packet to {c["ip"]} for {c["name"]}')
+            print_bytearray(packet)
+
         SOCK.sendto(packet, (c['ip'], ARTNET_PORT))
 
     SEQUENCE = SEQUENCE + 1
@@ -176,12 +176,22 @@ def print_bytearray(b: bytearray) -> None:
             o += 1
 
 def fill_flows(val: float):
+    global FLOWS
     for i in range(0,NOZZLES):
         FLOWS[i] = val
 
 def fill_actives(val: int):
+    global ACTIVES
     for i in range(0,NOZZLES):
         ACTIVES[i] = val
+
+def print_flows():
+    print('FLOWS')
+    print(FLOWS)
+
+def print_actives():
+    print('ACTIVES')
+    print(ACTIVES)
 
 
 def pattern_pulse():
