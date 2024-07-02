@@ -35,13 +35,13 @@ CONTROLLERS = None
 # there is a numbering system for the nozzles.
 # Each offset of the 30 is a very specific one.
 
-NOZZLES = 30
+NOZZLES = 0
 
 # this corresponds to the servo flow state - float, 0 to 1
-FLOWS = [ 0.0 ] * NOZZLES
+FLOWS = None
 
 # this corresponds to the solenoid - 0 to 1
-ACTIVES = [ 0 ] * NOZZLES
+ACTIVES = None 
 
 # frames per second
 FPS = 10
@@ -73,7 +73,7 @@ def artnet_packet(universe: int, sequence: int, packet: bytearray ):
 
     # print_bytearray(packet)
 
-    packet[0:12] = b'Art-net\x00\x00\x50\x00\x14'
+    packet[0:12] = b'Art-Net\x00\x00\x50\x00\x14'
 
     packet[12] = sequence
     packet[13] = 0
@@ -116,7 +116,11 @@ def transmit() -> None:
             if (DEBUG and (FLOWS[i+offset] < 0.0) or (FLOWS[i+offset] > 1.0)):
                 print(f'flow at {i+offset} out of range {FLOWS[i+offset]} skipping')
 
-            packet[ARTNET_HEADER_SIZE + (i*2) ] = ACTIVES[i+offset]
+            if FLOWS[i+offset] < 0.10:
+                packet[ARTNET_HEADER_SIZE + (i*2) ] = 0
+            else:
+                packet[ARTNET_HEADER_SIZE + (i*2) ] = ACTIVES[i+offset]
+
             packet[ARTNET_HEADER_SIZE + (i*2) + 1] = math.floor(FLOWS[i+offset] * 255.0 )
 
         # transmit
@@ -198,19 +202,23 @@ def pattern_pulse():
 
     print(f'Starting Pulse Pattern')
 
-    wait = 0.500
+    wait = 1.0
+
+    print(f' Turn on servos and solenoids')
+    fill_actives(1)
+    fill_flows(1.0)
+    transmit()
+    sleep(wait)
 
     # open the valves in steps
+
     for f in range(0,11):
+        print(f' set flow {f / 10.0 }')
         fill_flows(f / 10.0)
         transmit()
         sleep(wait)
 
-    # Open all solenoids, wait, and then close them
-    fill_actives(1)
-    transmit()
-    sleep(wait)
-
+    # Close all solenoids, wait, and then close them
     fill_actives(0)
     transmit()
     sleep(wait)
@@ -223,36 +231,38 @@ def pattern_wave():
     print('Starting Wave Pattern')
     wait = 0.500
 
+    print('Wave: Close all solenoids')
     # Close all solenoids
     fill_actives(0)
     transmit()
     sleep(wait)
 
     # Open servos fully
+    print('Wave: Open all servos and solenoids')
+    fill_actives(1)
     fill_flows(1.0)
     transmit()
     sleep(wait)
 
-    # Open solenoids
-    fill_actives(1)
-    transmit()
-    sleep(0.1)
-
     # Change servo valve from 100% to 10% and back
     step = .05;
     steps = int(1/step)
-    wait = 300;
+    wait = 0.300;
     for i in range(steps):
+        print(f'Wave: open solinoid to {1.0 - (i * step)}')
         fill_flows(1.0 - (i * step))
         transmit()
         sleep(wait)
 
     for i in range(steps):
+        print(f'Wave: open solinoid to {i * step}')
         fill_flows(i * step)
         transmit()
         sleep(wait)
 
     # Close solenoids
+    print(f'Wave: close solenoids')
+
     fill_actives(0)
     transmit()
 
@@ -273,23 +283,27 @@ def pattern_wave_solenoids():
 
     # go through all the solonoids one by one
     for i in range(NOZZLES):
-        ACTIVE[i] = 1
+        print(f'turn on solinoid {i}')
+        ACTIVES[i] = 1
         transmit()
         sleep(period)
 
     # close them in the same order
     for i in range(NOZZLES):
-        ACTIVE[i] = 0
+        print(f'turn off solinoid {i}')        
+        ACTIVES[i] = 0
         transmit()
         sleep(period)
 
     for i in range(NOZZLES-1,0,-1):
-        ACTIVE[i] = 1
+        print(f'turn on solinid {i}')
+        ACTIVES[i] = 1
         transmit()
         sleep(period)
 
     for i in range(NOZZLES-1,0,-1):
-        ACTIVE[i] = 0
+        print(f'turn off solinid {i}')
+        ACTIVES[i] = 0
         transmit()
         sleep(period)
 
@@ -302,18 +316,18 @@ def pattern_wave_solenoids():
 
 def pattern_multiwave():
 
-  waveSteps = 20;  # Total steps in the wave (up and down), even number
-  delay = 200
+  waveSteps = 20  # Total steps in the wave (up and down), even number
   pattern = [0.0] * waveSteps;
 
   # Initialize the wave pattern
-  for i in range(waveSteps / 2):
+  for i in range(int(waveSteps / 2)):
     pattern[i] = i / (waveSteps / 2)
     pattern[waveSteps-i-1] = pattern[i]
 
   print(f'Starting multiwave pattern')
 
   # Open solenoids close valves
+  print(f'open solenoids close valves')
   fill_flows(0.0)
   fill_actives(1)
   transmit()
@@ -322,10 +336,15 @@ def pattern_multiwave():
   # overlay the pattern
   fill_flows(0.0)
   for i in range(NOZZLES):
+
     for j in range(waveSteps):
         FLOWS[ (i + j) % len(FLOWS)] = pattern[j]
+
+    print(f'wave offset: {i} shifting: FLOWS')
+    print(FLOWS)
+
     transmit()
-    sleep(0.200)
+    sleep(0.500)
 
   # Open solenoids close valves
   fill_flows(0.0)
@@ -380,6 +399,13 @@ def main():
     global CONTROLLERS
     with open(args.config) as ftc_f:
         CONTROLLERS = json.load(ftc_f)  # XXX catch exceptions here.
+
+    # base NOZZLES on config file
+    global NOZZLES, FLOWS, ACTIVES
+    for c in CONTROLLERS:
+        NOZZLES = NOZZLES + c['nozzles']
+    FLOWS = [0.0] * NOZZLES
+    ACTIVES = [0] * NOZZLES
 
     if not args.pattern:
         for _ in range(args.repeat):
