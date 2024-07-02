@@ -353,6 +353,27 @@ def pattern_multiwave():
   print(f'Ending multiwave pattern')
 
 
+def pattern_fast():
+    print(f'Starting fast pattern')
+    fill_actives(0)
+    fill_flows(1.0)
+    transmit()
+
+    index = 0
+    for j in range(NOZZLES * 3):
+        for i in range(NOZZLES):
+            if i == index:
+                ACTIVES[i] = 1
+            else:
+                ACTIVES[i] = 0
+        transmit()
+        sleep(0.2)
+        index = (index + 1) % NOZZLES
+
+    fill_actives(0)
+    transmit()
+    print(f'Ending fast pattern')
+
 
 def pattern_multipattern():
 
@@ -425,6 +446,9 @@ def main():
     elif args.pattern == 'multipattern':
         for _ in range(args.repeat):
             pattern_multipattern()
+    elif args.pattern == 'fast':
+        for _ in range(args.repeat):
+            pattern_fast()
     else:
         print(' pattern must be one of pulse wave multiwave multipattern')
 
