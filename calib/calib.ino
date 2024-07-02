@@ -5,8 +5,8 @@
 
 #include <ArtnetWifi.h>
 
-IPAddress ip(192, 168, 1, 201);
-IPAddress gateway(192, 168, 1, 1);
+IPAddress ip(192, 168, 13, 201);
+IPAddress gateway(192, 168, 13, 1);
 IPAddress subnet(255, 255, 255, 0);
 const char *ssid = "lightcurve";
 const char *password = "curvelight";
@@ -162,17 +162,16 @@ void receiveArtnet()
 // Do not call this directly, it will be called when you call `receiveArtnet`.
 void onDmxFrame(uint16_t universe, uint16_t numBytesReceived, uint8_t sequence, uint8_t *data)
 {
-  // Using 2 "RGB" pixels per nozzle - first for solenoid, second for servo. Maps to 6 bytes per
-  // nozzle, and we will only look at the red channel for each.
-  int numValvesReceived = min(numBytesReceived / 6, NUM_VALVES);
-  for (int valveNum = 0; valveNum < numValvesReceived; valveNum++)
+  // Using 2 artnet channels (a.k.a. bytes) per nozzle - first byte for solenoid, second for servo.
+  int numNozzlesReceived = min(numBytesReceived / 2, NUM_VALVES);
+  for (int nozzleIndex = 0; nozzleIndex < numNozzlesReceived; nozzleIndex++)
   {
-    int valveDataStart = valveNum * 6;
-    uint8_t solenoidByte = data[valveDataStart];
-    uint8_t servoByte = data[valveDataStart + 3];
+    int valveDataStartIndex = nozzleIndex * 2;
+    uint8_t solenoidByte = data[valveDataStartIndex];
+    uint8_t servoByte = data[valveDataStartIndex + 1];
     float servoByteFloat = (float)servoByte;
-    setSolenoidState(valveNum, solenoidByte > 127);
-    setValveState(valveNum, servoByteFloat / 255.0);
+    setSolenoidState(nozzleIndex, solenoidByte > 0);
+    setValveState(nozzleIndex, servoByteFloat / 255.0);
   }
 }
 
@@ -758,10 +757,10 @@ void processCommand(String command)
     case 4:
       demo_wave_solenoids();
       break;
-    case 4:
+    case 5:
       demo_pulses_short();
       break;
-    case 4:
+    case 6:
       demo_smooth_wave();
       break;
     default:
