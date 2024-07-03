@@ -1,5 +1,5 @@
 use kiss3d::{camera::ArcBall, light::Light, window::Window};
-use nalgebra::{Point3, Rotation3, Translation3, UnitQuaternion, UnitVector3, Vector3};
+use nalgebra::{Point3, Translation3, UnitQuaternion, Vector3};
 use rand::random;
 
 fn main() {
