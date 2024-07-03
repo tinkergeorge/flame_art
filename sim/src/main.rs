@@ -144,6 +144,11 @@ fn main() {
         )
     });
 
+    let cyl_len = c2 * 8.;
+    let mut arm = window.add_cylinder(c0 * 0.8, cyl_len);
+    arm.set_local_translation(Translation3::new(0., -cyl_len / 2., 0.));
+    arm.set_color(0.3, 0.3, 0.3);
+
     window.set_light(Light::StickToCamera);
 
     let mut arc_ball_camera = ArcBall::new(Point3::new(0.0f32, 0., 10.), Point3::origin());
