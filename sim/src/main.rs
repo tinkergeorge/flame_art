@@ -1,8 +1,12 @@
+use std::net::UdpSocket;
+
+use artnet_protocol::ArtCommand;
 use kiss3d::{camera::ArcBall, light::Light, window::Window};
 use nalgebra::{Point3, Translation3, UnitQuaternion, Vector3};
 use rand::random;
 
 fn main() {
+    let socket = setup_socket();
     let c0: f32 = 5f32.sqrt() / 4.;
     let c1: f32 = (5. + 5f32.sqrt()) / 8.;
     let c2: f32 = (5. + 3. * 5f32.sqrt()) / 8.;
@@ -122,5 +126,59 @@ fn main() {
 
     while !window.should_close() {
         window.render_with_camera(&mut arc_ball_camera);
+        receive_artnet(&socket);
+    }
+}
+
+fn setup_socket() -> UdpSocket {
+    let udp_socket = match UdpSocket::bind("0.0.0.0:6454") {
+        Ok(socket) => socket,
+        Err(e) => {
+            println!("Error binding: {:?}", e);
+            panic!();
+        }
+    };
+    udp_socket.set_nonblocking(true).unwrap();
+    udp_socket
+}
+
+fn receive_artnet(socket: &UdpSocket) {
+    let mut response_buf = [0u8; 65507];
+    let Ok((response_length, player_address)) = socket.recv_from(&mut response_buf) else {
+        // Received nothing
+        return;
+    };
+
+    match ArtCommand::from_buffer(&response_buf[..response_length]) {
+        Err(e) => {
+            println!(
+                "Received bytes that aren't a valid artnet command from {:?}: {:?}",
+                player_address, e
+            );
+        }
+        Ok(ArtCommand::Output(output)) => {
+            let data = output.data.as_ref();
+            println!("{:?}", data);
+            // let numNozzlesReceived = faces.len().min(numBytesReceived / 2);
+            // data.chunks(2).take(numNozzlesReceived * 2).for_each(|byte|{
+
+            //     // for (int nozzleIndex = 0; nozzleIndex < numNozzlesReceived; nozzleIndex++)
+            //     // {
+            //     //   int valveDataStartIndex = nozzleIndex * 2;
+            //     //   uint8_t solenoidByte = data[valveDataStartIndex];
+            //     //   uint8_t servoByte = data[valveDataStartIndex + 1];
+            //     //   float servoByteFloat = (float)servoByte;
+            //     //   setSolenoidState(nozzleIndex, solenoidByte > 0);
+            //     //   setValveState(nozzleIndex, servoByteFloat / 255.0);
+            //     // }
+            // });
+        }
+        _ => {
+            // E.g. this will happen when the device receives its own poll message that was broadcast on the network.
+            println!(
+                "Received artnet that is not PollReply from {:?}",
+                player_address
+            );
+        }
     }
 }
