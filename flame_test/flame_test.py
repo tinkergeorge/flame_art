@@ -367,7 +367,7 @@ def pattern_fast():
             else:
                 ACTIVES[i] = 0
         transmit()
-        sleep(0.2)
+        sleep(0.3)
         index = (index + 1) % NOZZLES
 
     fill_actives(0)

@@ -6,11 +6,14 @@ use nalgebra::{Point3, Translation3, UnitQuaternion, Vector3};
 use rand::random;
 
 struct Face {
+    center_vector: Vector3<f32>,
+    fire_cone: SceneNode,
     switch: bool,
     flow: f32,
-    fire_cone: SceneNode,
-    scale: f32,
-    center_vector: Vector3<f32>,
+    // Rough concept of the concentration of fire. Number from 0 to 2. Poofs start out at 2 (all
+    // fire concentrated around nozzle) and quickly decay to 1 (normal stable flow), then when
+    // released decay to 0. Not really based in physics but it is just for the simulation.
+    concentration: f32,
 }
 impl Face {
     pub fn new(
@@ -52,11 +55,11 @@ impl Face {
         fire_cone.set_color(1., 0.8, 0.2);
 
         Self {
+            center_vector: quaternion_to_rotate_5_pyramid_to_top.transform_vector(&center_vector),
+            fire_cone,
             switch: false,
             flow: 1.,
-            fire_cone,
-            scale: 1.,
-            center_vector: quaternion_to_rotate_5_pyramid_to_top.transform_vector(&center_vector),
+            concentration: 1.,
         }
     }
 }
@@ -162,22 +165,24 @@ fn main() {
         window.render_with_camera(&mut arc_ball_camera);
         receive_artnet(&mut faces, &socket);
         faces.iter_mut().for_each(|face| {
-            // Update scale
+            // Update concentration
             if face.switch {
-                face.scale = face.scale + (face.flow - face.scale) * 0.3;
+                // Decay concentration to the flow value
+                face.concentration = face.concentration + (face.flow - face.concentration) * 0.1;
             } else {
-                face.scale *= 0.97;
+                // Decay concentration to zero
+                face.concentration *= 0.97;
             }
 
             // Render
+            let scale = 1. + (1. - face.concentration).powi(3);
+            face.fire_cone.set_local_scale(scale, scale * 2., scale);
             face.fire_cone
-                .set_local_scale(face.scale, face.scale * 2., face.scale);
-            face.fire_cone.set_local_translation(Translation3::from(
-                face.center_vector * (0.5 + face.scale * face.scale),
-            ));
-            let color_strength = face.scale / face.flow;
+                .set_local_translation(Translation3::from(face.center_vector * (0.5 + scale)));
+            let color_strength = (face.concentration / face.flow).powi(3).min(1.).max(0.);
             face.fire_cone
                 .set_color(color_strength, 0.8 * color_strength, 0.2 * color_strength);
+            face.fire_cone.set_visible(scale < 1.2);
         });
     }
 }
@@ -207,7 +212,11 @@ fn receive_artnet(faces: &mut [Face; 30], socket: &UdpSocket) {
             data.chunks_exact(2)
                 .zip(faces.iter_mut())
                 .for_each(|(bytes, face)| {
-                    face.switch = bytes[0] > 0;
+                    let new_switch = bytes[0] > 0;
+                    if new_switch && !face.switch {
+                        face.concentration = 2.;
+                    }
+                    face.switch = new_switch;
                     face.flow = bytes[1] as f32 / 255.;
                 });
         }
