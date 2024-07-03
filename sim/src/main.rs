@@ -7,8 +7,10 @@ use rand::random;
 
 struct Face {
     switch: bool,
-    flow: u8,
+    flow: f32,
     fire_cone: SceneNode,
+    scale: f32,
+    center_vector: Vector3<f32>,
 }
 impl Face {
     pub fn new(
@@ -42,17 +44,19 @@ impl Face {
                 || UnitQuaternion::from_axis_angle(&Vector3::x_axis(), std::f32::consts::PI),
             ),
         );
+        fire_cone.append_translation(&Translation3::from(center_vector * 1.5));
+        fire_cone.append_rotation(quaternion_to_rotate_5_pyramid_to_top);
         fire_cone.set_points_size(10.0);
         fire_cone.set_lines_width(1.0);
         fire_cone.set_surface_rendering_activation(false);
-        fire_cone.append_translation(&Translation3::from(center_vector * 1.5));
-        fire_cone.append_rotation(quaternion_to_rotate_5_pyramid_to_top);
         fire_cone.set_color(1., 0.8, 0.2);
 
         Self {
             switch: false,
-            flow: 255,
+            flow: 1.,
             fire_cone,
+            scale: 1.,
+            center_vector: quaternion_to_rotate_5_pyramid_to_top.transform_vector(&center_vector),
         }
     }
 }
@@ -154,8 +158,27 @@ fn main() {
     let mut arc_ball_camera = ArcBall::new(Point3::new(0.0f32, 0., 10.), Point3::origin());
 
     while !window.should_close() {
+        window.set_framerate_limit(Some(60));
         window.render_with_camera(&mut arc_ball_camera);
         receive_artnet(&mut faces, &socket);
+        faces.iter_mut().for_each(|face| {
+            // Update scale
+            if face.switch {
+                face.scale = face.scale + (face.flow - face.scale) * 0.3;
+            } else {
+                face.scale *= 0.97;
+            }
+
+            // Render
+            face.fire_cone
+                .set_local_scale(face.scale, face.scale * 2., face.scale);
+            face.fire_cone.set_local_translation(Translation3::from(
+                face.center_vector * (0.5 + face.scale * face.scale),
+            ));
+            let color_strength = face.scale / face.flow;
+            face.fire_cone
+                .set_color(color_strength, 0.8 * color_strength, 0.2 * color_strength);
+        });
     }
 }
 
@@ -185,13 +208,7 @@ fn receive_artnet(faces: &mut [Face; 30], socket: &UdpSocket) {
                 .zip(faces.iter_mut())
                 .for_each(|(bytes, face)| {
                     face.switch = bytes[0] > 0;
-                    face.flow = bytes[1];
-                    let flow_proportion = face.flow as f32 / 255.;
-                    if face.switch {
-                        face.fire_cone.set_local_scale(1., flow_proportion * 2., 1.);
-                    } else {
-                        face.fire_cone.set_local_scale(0., 0., 0.);
-                    }
+                    face.flow = bytes[1] as f32 / 255.;
                 });
         }
         Err(e) => {
