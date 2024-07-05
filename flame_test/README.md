@@ -1,9 +1,11 @@
 # Flame Test
 
-This directory has basic test patterns for the piece.
+This directory has basic test patterns for Light Curve.
 
 It interacts directly with the controllers. There are 3 esp32 based controllers, each 
 with 10 flame jets.
+
+It also can be used with the simulator.
 
 # Art Net Definition
 
@@ -15,7 +17,7 @@ Each fixture has two channels.
 
 The first channel is "solonoid", which is 1 (on) or 0 (off). 
 
-The second channel is "valve", which controls the flow. This value is from 0 (off) to 255 (full on).
+The second channel is "aperture", which controls the flow. This value is from 0 (off) to 255 (full on).
 
 Note that there are two ways to express "off". Thus is is possible to have the valve full open but the solonoid off, and the solonoid on but the valve is off. This is *intentional* because we wish to support "poofs", that is, having the valve wide open and turning the solonoid open.
 
@@ -29,26 +31,23 @@ Q: The sequence number *is* used. The ArtNet is flowing over wifi, which has a g
 
 Q: ArtNet has a discover protocol. This doesn't use them.
 
-# Tests
+# Patterns
 
 The test code is written in python. The code is written to python 3.10-ish which is common
-around the time we are writing. Likely it is all tested with python 3.11 or 3.12
+around the time we are writing.
 
-To add a new test pattern, write it as per the examples. Generally, you'll update the two arrays which
-have the flow values (valve), and whether the nozzle is active (solonoid)
+To add a new test pattern, copy one of the files such as `pattern_pulse.py` to a new file.
+Change the name of the single function `def pattern_pulse` to the same name as the file.
 
-# multithreading (higher frame rates)
+Change the pattern to so what you'd like. Use delays or time to update the array of `solinoid` and `aperture`. 
 
-In order to make up for lost packets, it is better to have a background thread transmit the UDP packets.
-This means instead of transmitting and setting a delay, you'd just update the byte array, and the
-background thread would continually send. While this could introduce "tearing" and we might then
-need to introduce a mutex or think a little about the GIL
+# The off state
 
-(to be implemented)
+Since the calibration is not yet perfect, there is a small bit of code that also turns the solenoid off for a small aperture. This value can be played with, or eventually removed,
+if the calibration is better or if the controller software takes on this capability.
 
-# TODOs
+In the case of using the simulator, this filter creates an unusual effect. Instead of seeing the value decrease , there is a crisp shutoff when you are still asking for flow.
 
-I hate the syntax of VALVE and ACTIVE. At least, if we use active, we could use a Boolean for better expressiveness.
+# The on state
 
-Should switch the definition from inside the file itself to a JSON. That'll allow easy changing of IP addresses
-and/or ranges
+Because an HSI is used, there is a small period of time after opening the aperture or solinoid before it lights. The currently observed value is much less than a second, but it does exist. We expect this value to get smaller.

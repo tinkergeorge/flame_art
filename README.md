@@ -1,3 +1,31 @@
+# Flame Art
+
+This repository is software for the Light Curve project,
+a 30 sided object with fire jets.
+
+# Run the simulator
+
+[Install Rust if you don't have it.](https://www.rust-lang.org/tools/install)
+
+```
+cd sim
+cargo run
+```
+
+The simulator takes over the artnet port.
+
+# Run a test program
+
+Make sure python is a recent version, and `pip install importlib`
+
+```
+cd flame_test
+python flame_test.py -c sim_test.cnf
+```
+
+This runs a basic test pattern (pulse). Please see the help ( python flame_test.py --help )
+and the readme in that directory.
+
 # network configuration
 
 Access point
