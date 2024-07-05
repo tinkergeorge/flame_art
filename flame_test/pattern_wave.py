@@ -14,14 +14,12 @@ def pattern_wave(xmit: ft.LightCurveTransmitter):
     print('Wave: Close all solenoids')
     # Close all solenoids
     xmit.fill_solenoids(0)
-    xmit.transmit()
     sleep(wait)
 
     # Open servos fully
     print('Wave: Open all servos and solenoids')
     xmit.fill_solenoids(1)
     xmit.fill_apertures(1.0)
-    xmit.transmit()
     sleep(wait)
 
     # Change servo valve from 100% to 10% and back
@@ -31,20 +29,17 @@ def pattern_wave(xmit: ft.LightCurveTransmitter):
     for i in range(steps):
         print(f'Wave: open solinoid to {1.0 - (i * step)}')
         xmit.fill_apertures(1.0 - (i * step))
-        xmit.transmit()
         sleep(wait)
 
     for i in range(steps):
         print(f'Wave: open solinoid to {i * step}')
         xmit.fill_apertures(i * step)
-        xmit.transmit()
         sleep(wait)
 
     # Close solenoids
     print(f'Wave: close solenoids')
 
     xmit.fill_solenoids(0)
-    xmit.transmit()
 
     print('Ending Wave Pattern')
 

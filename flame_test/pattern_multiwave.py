@@ -27,7 +27,6 @@ def pattern_multiwave(xmit: ft.LightCurveTransmitter):
   print(f'open solenoids close valves')
   xmit.fill_apertures(0.0)
   xmit.fill_solenoids(1)
-  xmit.transmit()
   sleep(0.100)
 
   # overlay the pattern
@@ -40,12 +39,10 @@ def pattern_multiwave(xmit: ft.LightCurveTransmitter):
     print(f'wave offset: {i} shifting: apertures')
     # print(xmit.apertures)
 
-    xmit.transmit()
     sleep(0.500)
 
   # Open solenoids close valves
   xmit.fill_apertures(0.0)
-  xmit.transmit()
 
   print(f'Ending multiwave pattern')
 

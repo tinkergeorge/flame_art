@@ -25,26 +25,22 @@ def pattern_soliwave(xmit: ft.LightCurveTransmitter):
     for i in range(xmit.nozzles):
         print(f'turn on solinoid {i}')
         xmit.solenoids[i] = 1
-        xmit.transmit()
         sleep(period)
 
     # close them in the same order
     for i in range(xmit.nozzles):
         print(f'turn off solinoid {i}')        
         xmit.solenoids[i] = 0
-        xmit.transmit()
         sleep(period)
 
     for i in range(xmit.nozzles-1,0,-1):
         print(f'turn on solinid {i}')
         xmit.solenoids[i] = 1
-        xmit.transmit()
         sleep(period)
 
     for i in range(xmit.nozzles-1,0,-1):
         print(f'turn off solinid {i}')
         xmit.solenoids[i] = 0
-        xmit.transmit()
         sleep(period)
 
     print(f'Ending wave solenoids pattern')

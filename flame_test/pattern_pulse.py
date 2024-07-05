@@ -16,7 +16,6 @@ def pattern_pulse(xmit: ft.LightCurveTransmitter):
     print(f' Turn on servos and solenoids')
     xmit.fill_solenoids(1)
     xmit.fill_apertures(1.0)
-    xmit.transmit()
     sleep(wait)
 
     # open the valves in steps
@@ -24,12 +23,10 @@ def pattern_pulse(xmit: ft.LightCurveTransmitter):
     for f in range(0,11):
         print(f' set flow {f / 10.0 }')
         xmit.fill_apertures(f / 10.0)
-        xmit.transmit()
         sleep(wait)
 
     # Close all solenoids, wait, and then close them
     xmit.fill_solenoids(0)
-    xmit.transmit()
     sleep(wait)
 
     print(f'Ending Pulse Pattern')

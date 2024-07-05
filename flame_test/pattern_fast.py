@@ -10,7 +10,6 @@ def pattern_fast(xmit: ft.LightCurveTransmitter):
     print(f'Starting fast pattern')
     xmit.fill_solenoids(0)
     xmit.fill_apertures(1.0)
-    xmit.transmit()
 
     index = 0
     for j in range(xmit.nozzles * 3):
@@ -19,10 +18,8 @@ def pattern_fast(xmit: ft.LightCurveTransmitter):
                 xmit.solenoids[i] = 1
             else:
                 xmit.solenoids[i] = 0
-        xmit.transmit()
         sleep(0.3)
         index = (index + 1) % xmit.nozzles
 
     xmit.fill_apertures(0)
-    xmit.transmit()
     print(f'Ending fast pattern')

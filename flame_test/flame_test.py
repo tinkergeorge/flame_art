@@ -24,11 +24,12 @@
 # Author: brian@bulkowski.org Brian Bulkowski 2024 Copyright assigned to Sam Cooler
 
 import socket
-from time import sleep
+from time import sleep, time
 import argparse
 import json
-from threading import Thread
+from threading import Thread, Event
 import math
+
 import glob 
 import importlib
 import os
@@ -92,6 +93,7 @@ class LightCurveTransmitter:
         self.debug = debug
         self.sequence = 0
         self.repeat = args.repeat
+        self.fps = args.fps
 
         # create outbound socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
@@ -154,10 +156,38 @@ class LightCurveTransmitter:
     def print_solenoid(self):
         print(self.solenoids)
 
+# background 
+
+# set when you want output
+xmit_event = Event()
+
+def xmit_thread(xmit):
+    delay = 1.0 / xmit.fps
+    # print(f'delay is {delay} fps is {xmit.fps}')
+
+    while(True):
+        t1 = time()
+        if xmit_event.is_set():
+            xmit.transmit()
+        d = delay - (time() - t1)
+        if (d > 0.002):
+            sleep(d)
+
+def xmit_thread_init(xmit):
+    global BACKGROUND_THREAD, xmit_event
+    xmit_event.set()
+    BACKGROUND_THREAD = Thread(target=xmit_thread, args=(xmit,) )
+    BACKGROUND_THREAD.daemon = True
+    BACKGROUND_THREAD.start()
+
+def xmit_thread_start():
+    xmit_event.set()
+
+def xmit_thread_stop():
+    xmit_event.clear()
 
 
 # useful helper function
-
 def print_bytearray(b: bytearray) -> None:
     l = len(b)
     o = 0
@@ -245,6 +275,9 @@ def pattern_multipattern(xmit: LightCurveTransmitter):
 
     print(f'Ending multipattern pattern')
 
+#
+#
+
 def args_init():
     parser = argparse.ArgumentParser(prog='flame_test', description='Send ArtNet packets to the Color Curve for testing')
     parser.add_argument('--config','-c', type=str, default="flame_test.cnf", help='Fire Art Controller configuration file')
@@ -278,6 +311,8 @@ def main():
     print(args.controllers)
 
     xmit = LightCurveTransmitter(args)
+
+    xmit_thread_init(xmit)
 
     if args.pattern not in PATTERN_FUNCTIONS:
         print(f' pattern must be one of {patterns()}')
