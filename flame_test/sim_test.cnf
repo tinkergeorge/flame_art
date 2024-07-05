@@ -1,6 +1,10 @@
-[ 
-    {   "name": "sim",
-        "ip": "127.0.0.1",
-        "nozzles": 30,
-        "offset": 0 }
-]
+{
+    "nozzles": 30,
+    "controllers": 
+    [ 
+        {   "name": "sim",
+            "ip": "127.0.0.1",
+            "nozzles": 30,
+            "offset": 0 }
+    ]
+}

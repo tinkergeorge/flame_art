@@ -1,6 +1,10 @@
-[ 
-    {   "name": "1",
-        "ip": "192.168.13.201",
-        "nozzles": 10,
-        "offset": 0 }
-]
+{
+    "nozzles": 30,  
+    "controllers": 
+    [
+        {   "name": "1",
+            "ip": "192.168.13.201",
+            "nozzles": 10,
+            "offset": 0 }
+    ]
+}

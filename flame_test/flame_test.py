@@ -18,8 +18,10 @@
 
 # see readme for definition of the device
 
-# was going to use the pyartnet library but it's really simple to send packets
-# import pyartnet
+### NOTE:
+### The configuration file allows specification of the complete number of nozzles
+### this allows to run the simulator and the sculpture at the same time,
+### or other shenanigans
 
 # Author: brian@bulkowski.org Brian Bulkowski 2024 Copyright assigned to Sam Cooler
 
@@ -83,10 +85,7 @@ class LightCurveTransmitter:
 
         self.controllers = args.controllers
 
-        self.nozzles = 0
-        for c in args.controllers:
-            self.nozzles = self.nozzles + c['nozzles']
-
+        self.nozzles = args.nozzles
         self.apertures = [0.0] * self.nozzles
         self.solenoids = [0] * self.nozzles
 
@@ -108,7 +107,7 @@ class LightCurveTransmitter:
         for c in self.controllers:
 
             # allocate the packet TODO allocate a packet once
-            packet = bytearray( ( c['nozzles'] * 2) + ARTNET_HEADER_SIZE)
+            packet = bytearray( ( self.nozzles * 2) + ARTNET_HEADER_SIZE)
 
             # fill in the artnet part
             _artnet_packet(ARTNET_UNIVERSE, self.sequence, packet)
@@ -288,10 +287,11 @@ def args_init():
 
     args = parser.parse_args()
 
-    # load controllers
+    # load config file
     with open(args.config) as ftc_f:
-        controllers = json.load(ftc_f)  # XXX catch exceptions here.
-        args.controllers = controllers
+        conf = json.load(ftc_f)  # XXX catch exceptions here.
+        args.controllers = conf['controllers']
+        args.nozzles = conf['nozzles']
 
     return args
 
