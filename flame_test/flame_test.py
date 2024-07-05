@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 
-
 # WARNING has syntax that is python 3
 # you will see strange looking errors in Python2
 # not sure exactly which python is required...
@@ -22,35 +21,26 @@
 # was going to use the pyartnet library but it's really simple to send packets
 # import pyartnet
 
+# Author: brian@bulkowski.org Brian Bulkowski 2024 Copyright assigned to Sam Cooler
+
 import socket
 from time import sleep
 import argparse
 import json
 from threading import Thread
 import math
+import glob 
+import importlib
+import os
+import sys
 
-# filled in by config file
-CONTROLLERS = None
-
-# there is a numbering system for the nozzles.
-# Each offset of the 30 is a very specific one.
-
-NOZZLES = 0
-
-# this corresponds to the servo flow state - float, 0 to 1
-FLOWS = None
-
-# this corresponds to the solenoid - 0 to 1
-ACTIVES = None 
-
-# frames per second
-FPS = 10
 
 ARTNET_PORT = 6454
 ARTNET_UNIVERSE = 0
 ARTNET_HEADER_SIZE = 18
 
-DEBUG = False
+debug = False
+ARGS = None
 
 # artnet packet format: ( 18 bytes )
 # 8 bytes header: 'Art-Net0'
@@ -62,9 +52,9 @@ DEBUG = False
 # 2 bytes length big endian
 # data
 
-def artnet_packet(universe: int, sequence: int, packet: bytearray ):
+def _artnet_packet(universe: int, sequence: int, packet: bytearray ):
 
-    # print(f'Artnet_packet: building') if DEBUG else None
+    # print(f'Artnet_packet: building') if debug else None
 
     if len(packet) < 18:
         print(f'Artnet Packet: must provide packet at least 18 bytes long, skipping')
@@ -86,61 +76,87 @@ def artnet_packet(universe: int, sequence: int, packet: bytearray ):
 
     # print_bytearray(packet)
 
-SOCK = None
-SEQUENCE = 0
+class LightCurveTransmitter:
 
-# call once to set up 
-def transmit() -> None:
+    def __init__(self, args) -> None:
 
-    global SEQUENCE, SOCK
+        self.controllers = args.controllers
 
-    print(f'transmit') if DEBUG else None
+        self.nozzles = 0
+        for c in args.controllers:
+            self.nozzles = self.nozzles + c['nozzles']
 
+        self.apertures = [0.0] * self.nozzles
+        self.solenoids = [0] * self.nozzles
 
-    for c in CONTROLLERS:
+        self.debug = debug
+        self.sequence = 0
+        self.repeat = args.repeat
 
-        # allocate the packet TODO allocate a packet once
-        packet = bytearray( ( c['nozzles'] * 2) + ARTNET_HEADER_SIZE)
-
-        # fill in the artnet part
-        artnet_packet(ARTNET_UNIVERSE, SEQUENCE, packet)
-
-        # fill in the data bytes
-        offset = c['offset']
-        for i in range(c['nozzles']):
-
-            # validation. Could make optional.
-            if (DEBUG and ( ACTIVES[i+offset] < 0) or (ACTIVES[i+offset] > 1)):
-                print(f'active at {i+offset} out of range {ACTIVES[i+offset]} skipping')
-                return
-            if (DEBUG and (FLOWS[i+offset] < 0.0) or (FLOWS[i+offset] > 1.0)):
-                print(f'flow at {i+offset} out of range {FLOWS[i+offset]} skipping')
-
-            if FLOWS[i+offset] < 0.10:
-                packet[ARTNET_HEADER_SIZE + (i*2) ] = 0
-            else:
-                packet[ARTNET_HEADER_SIZE + (i*2) ] = ACTIVES[i+offset]
-
-            packet[ARTNET_HEADER_SIZE + (i*2) + 1] = math.floor(FLOWS[i+offset] * 255.0 )
-
-        # transmit
-        if DEBUG:
-            print(f' sending packet to {c["ip"]} for {c["name"]}')
-            print_bytearray(packet)
-
-        SOCK.sendto(packet, (c['ip'], ARTNET_PORT))
-
-    SEQUENCE = SEQUENCE + 1
-
-def network_init() -> None:
-
-    global SOCK
-
-    # create outbound socket
-    SOCK = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
-    SOCK.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # create outbound socket
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 
+    # call once to set up 
+    def transmit(self) -> None:
+
+        print(f'transmit') if self.debug else None
+
+        for c in self.controllers:
+
+            # allocate the packet TODO allocate a packet once
+            packet = bytearray( ( c['nozzles'] * 2) + ARTNET_HEADER_SIZE)
+
+            # fill in the artnet part
+            _artnet_packet(ARTNET_UNIVERSE, self.sequence, packet)
+
+            # fill in the data bytes
+            offset = c['offset']
+            for i in range(c['nozzles']):
+
+                # validation. Could make optional.
+                if (self.debug and 
+                        ( self.solenoids[i+offset] < 0) or (self.solenoids[i+offset] > 1)):
+                    print(f'active at {i+offset} out of range {self.solenoids[i+offset]} skipping')
+                    return
+                if (self.debug and 
+                        (se.fapertures[i+offset] < 0.0) or (self.apertures[i+offset] > 1.0)):
+                    print(f'flow at {i+offset} out of range {self.apertures[i+offset]} skipping')
+
+                if self.apertures[i+offset] < 0.10:
+                    packet[ARTNET_HEADER_SIZE + (i*2) ] = 0
+                else:
+                    packet[ARTNET_HEADER_SIZE + (i*2) ] = self.solenoids[i+offset]
+
+                packet[ARTNET_HEADER_SIZE + (i*2) + 1] = math.floor(self.apertures[i+offset] * 255.0 )
+
+            # transmit
+            if self.debug:
+                print(f' sending packet to {c["ip"]} for {c["name"]}')
+                print_bytearray(packet)
+
+            self.sock.sendto(packet, (c['ip'], ARTNET_PORT))
+
+        self.sequence += 1
+
+    def fill_apertures(self, val: float):
+        for i in range(0,self.nozzles):
+            self.apertures[i] = val
+
+    def fill_solenoids(self, val: int):
+        for i in range(0,self.nozzles):
+            self.solenoids[i] = val
+
+    def print_aperture(self):
+        print(self.apertures)
+
+    def print_solenoid(self):
+        print(self.solenoids)
+
+
+
+# useful helper function
 
 def print_bytearray(b: bytearray) -> None:
     l = len(b)
@@ -179,232 +195,70 @@ def print_bytearray(b: bytearray) -> None:
             l -= 1
             o += 1
 
-def fill_flows(val: float):
-    global FLOWS
-    for i in range(0,NOZZLES):
-        FLOWS[i] = val
 
-def fill_actives(val: int):
-    global ACTIVES
-    for i in range(0,NOZZLES):
-        ACTIVES[i] = val
+# Dynamically import patterns
 
-def print_flows():
-    print('FLOWS')
-    print(FLOWS)
+def import_patterns():
+    global PATTERN_FUNCTIONS
+    PATTERN_FUNCTIONS = {}
 
-def print_actives():
-    print('ACTIVES')
-    print(ACTIVES)
+    # kinda shitty but just add the directory with this file to the path and remove it again
+    sys.path.append(os.path.dirname(__file__))
 
+    dir_path = f'{os.path.dirname(__file__)}/pattern_*.py'
+    for fn in glob.glob(dir_path):
 
-def pattern_pulse():
+        pattern_name = os.path.splitext(os.path.basename(fn))[0]
+        pattern_functionname = pattern_name.split('_',1)[1]
+        # print(f'importing pattern name {pattern_functionname} in file {pattern_name}')
+        module = importlib.import_module(pattern_name)
+        PATTERN_FUNCTIONS[pattern_functionname] = getattr(module,pattern_name)
 
-    print(f'Starting Pulse Pattern')
+    sys.path.remove(os.path.dirname(__file__))
 
-    wait = 1.0
+# load all the modules (files) which contain patterns
 
-    print(f' Turn on servos and solenoids')
-    fill_actives(1)
-    fill_flows(1.0)
-    transmit()
-    sleep(wait)
+def patterns():
+    return ' '.join(PATTERN_FUNCTIONS.keys())
 
-    # open the valves in steps
+def pattern_execute(pattern: str, xmit) -> bool:
 
-    for f in range(0,11):
-        print(f' set flow {f / 10.0 }')
-        fill_flows(f / 10.0)
-        transmit()
-        sleep(wait)
+    if pattern in PATTERN_FUNCTIONS:
+        PATTERN_FUNCTIONS[pattern](xmit)
+    else:
+        return False
 
-    # Close all solenoids, wait, and then close them
-    fill_actives(0)
-    transmit()
-    sleep(wait)
+    return True
 
-    print(f'Ending Pulse Pattern')
+def pattern_insert(pattern_name: str, pattern_fn):
+    PATTERN_FUNCTIONS[pattern_name] = pattern_fn
 
 
-def pattern_wave():
-
-    print('Starting Wave Pattern')
-    wait = 0.500
-
-    print('Wave: Close all solenoids')
-    # Close all solenoids
-    fill_actives(0)
-    transmit()
-    sleep(wait)
-
-    # Open servos fully
-    print('Wave: Open all servos and solenoids')
-    fill_actives(1)
-    fill_flows(1.0)
-    transmit()
-    sleep(wait)
-
-    # Change servo valve from 100% to 10% and back
-    step = .05;
-    steps = int(1/step)
-    wait = 0.300;
-    for i in range(steps):
-        print(f'Wave: open solinoid to {1.0 - (i * step)}')
-        fill_flows(1.0 - (i * step))
-        transmit()
-        sleep(wait)
-
-    for i in range(steps):
-        print(f'Wave: open solinoid to {i * step}')
-        fill_flows(i * step)
-        transmit()
-        sleep(wait)
-
-    # Close solenoids
-    print(f'Wave: close solenoids')
-
-    fill_actives(0)
-    transmit()
-
-    print('Ending Wave Pattern')
-
-
-def pattern_wave_solenoids():
-
-    period = 0.200
-
-    print(f'Staring wave solenoids pattern')
-
-    # Close all solenoids open all flow
-    fill_actives(0)
-    fill_flows(1.0)
-    transmit()
-    sleep(0.100)
-
-    # go through all the solonoids one by one
-    for i in range(NOZZLES):
-        print(f'turn on solinoid {i}')
-        ACTIVES[i] = 1
-        transmit()
-        sleep(period)
-
-    # close them in the same order
-    for i in range(NOZZLES):
-        print(f'turn off solinoid {i}')        
-        ACTIVES[i] = 0
-        transmit()
-        sleep(period)
-
-    for i in range(NOZZLES-1,0,-1):
-        print(f'turn on solinid {i}')
-        ACTIVES[i] = 1
-        transmit()
-        sleep(period)
-
-    for i in range(NOZZLES-1,0,-1):
-        print(f'turn off solinid {i}')
-        ACTIVES[i] = 0
-        transmit()
-        sleep(period)
-
-    print(f'Ending wave solenoids pattern')
-
-# multiwave controls the flows
-# have a wave size less than the number of nozzles
-# create an array with the pattern
-# move the pattern through the nozzles
-
-def pattern_multiwave():
-
-  waveSteps = 20  # Total steps in the wave (up and down), even number
-  pattern = [0.0] * waveSteps;
-
-  # Initialize the wave pattern
-  for i in range(int(waveSteps / 2)):
-    pattern[i] = i / (waveSteps / 2)
-    pattern[waveSteps-i-1] = pattern[i]
-
-  print(f'Starting multiwave pattern')
-
-  # Open solenoids close valves
-  print(f'open solenoids close valves')
-  fill_flows(0.0)
-  fill_actives(1)
-  transmit()
-  sleep(0.100)
-
-  # overlay the pattern
-  fill_flows(0.0)
-  for i in range(NOZZLES):
-
-    for j in range(waveSteps):
-        FLOWS[ (i + j) % len(FLOWS)] = pattern[j]
-
-    print(f'wave offset: {i} shifting: FLOWS')
-    print(FLOWS)
-
-    transmit()
-    sleep(0.500)
-
-  # Open solenoids close valves
-  fill_flows(0.0)
-  transmit()
-
-  print(f'Ending multiwave pattern')
-
-
-def pattern_fast():
-    print(f'Starting fast pattern')
-    fill_actives(0)
-    fill_flows(1.0)
-    transmit()
-
-    index = 0
-    for j in range(NOZZLES * 3):
-        for i in range(NOZZLES):
-            if i == index:
-                ACTIVES[i] = 1
-            else:
-                ACTIVES[i] = 0
-        transmit()
-        sleep(0.3)
-        index = (index + 1) % NOZZLES
-
-    fill_actives(0)
-    transmit()
-    print(f'Ending fast pattern')
-
-
-def pattern_multipattern():
+def pattern_multipattern(xmit: LightCurveTransmitter):
 
     print(f'Starting multipattern pattern')
 
-    pattern_pulse()
-
-    pattern_wave()
-
-    pattern_wave_solenoids()
-
-    pattern_multiwave()
+    for _ in range(xmit.repeat):
+        for name, fn in PATTERN_FUNCTIONS.items():
+            if name != 'multipattern':
+                fn(xmit)
 
     print(f'Ending multipattern pattern')
 
-def arg_init():
+def args_init():
     parser = argparse.ArgumentParser(prog='flame_test', description='Send ArtNet packets to the Color Curve for testing')
-    parser.add_argument('--host', type=str, help='IP address for destination')
-    parser.add_argument('--config','-c', type=str, default="flame_test.cnf", help='Input shrub JSON configuration file')
+    parser.add_argument('--config','-c', type=str, default="flame_test.cnf", help='Fire Art Controller configuration file')
 
-    parser.add_argument('--pattern', '-p', type=str, help='pulse wave multiwaveone of: pulse, wave, soliwave, multiwave, multipatternpalette, hsv, order, shrub_rank, shrub_rank_order, cube_order, cube_color, black')
+    parser.add_argument('--pattern', '-p', default="pulse", type=str, help=f'pattern one of: {patterns()}')
     parser.add_argument('--fps', '-f', default=15, type=int, help='frames per second')
     parser.add_argument('--repeat', '-r', default=1, type=int, help="number of times to run pattern")
 
-    global DESTINATION_IP, FPS
-
     args = parser.parse_args()
-    if args.host:
-        DESTINATION_IP = args.host
-    if args.fps:
-        FPS = args.fps
+
+    # load controllers
+    with open(args.config) as ftc_f:
+        controllers = json.load(ftc_f)  # XXX catch exceptions here.
+        args.controllers = controllers
 
     return args
 
@@ -412,46 +266,26 @@ def arg_init():
 # inits then pattern so simple
 
 def main():
-    args = arg_init()
 
-    network_init()
+    global ARGS
 
-    # Read configuration file. (They're json files)
-    global CONTROLLERS
-    with open(args.config) as ftc_f:
-        CONTROLLERS = json.load(ftc_f)  # XXX catch exceptions here.
+    import_patterns()
+    pattern_insert('multipattern', pattern_multipattern)
 
-    # base NOZZLES on config file
-    global NOZZLES, FLOWS, ACTIVES
-    for c in CONTROLLERS:
-        NOZZLES = NOZZLES + c['nozzles']
-    FLOWS = [0.0] * NOZZLES
-    ACTIVES = [0] * NOZZLES
+    args = args_init()
 
-    if not args.pattern:
-        for _ in range(args.repeat):
-            pattern_pulse()
-    elif args.pattern == 'pulse':
-        for _ in range(args.repeat):
-            pattern_pulse()
-    elif args.pattern == 'wave':
-        for _ in range(args.repeat):
-            pattern_wave()
-    elif args.pattern == 'soliwave':
-        for _ in range(args.repeat):
-            pattern_wave_solenoids()
-    elif args.pattern == 'multiwave':
-        for _ in range(args.repeat):
-            pattern_multiwave()
-    elif args.pattern == 'multipattern':
-        for _ in range(args.repeat):
-            pattern_multipattern()
-    elif args.pattern == 'fast':
-        for _ in range(args.repeat):
-            pattern_fast()
-    else:
-        print(' pattern must be one of pulse wave multiwave multipattern')
+    print('Controllers is what')
+    print(args.controllers)
 
+    xmit = LightCurveTransmitter(args)
+
+    if args.pattern not in PATTERN_FUNCTIONS:
+        print(f' pattern must be one of {patterns()}')
+        return
+
+    # run it bro
+    for _ in range(args.repeat):
+        pattern_execute(args.pattern, xmit)
 
 
 # only effects when we're being run as a module but whatever
