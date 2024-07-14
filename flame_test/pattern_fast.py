@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Author: Eric Gauterman
+# Author: Eric Gauderman
 
 # want the globals and helper functions from flametest
 import flame_test as ft
@@ -21,5 +21,6 @@ def pattern_fast(xmit: ft.LightCurveTransmitter):
         sleep(0.3)
         index = (index + 1) % xmit.nozzles
 
-    xmit.fill_apertures(0)
+    xmit.fill_solenoids(0)
+    sleep(0.3)
     print(f'Ending fast pattern')
