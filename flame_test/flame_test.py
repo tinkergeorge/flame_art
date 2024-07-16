@@ -164,20 +164,22 @@ class LightCurveTransmitter:
 # it appears in python when we set up a broadcast listerner
 # we would just listen on 0.0.0.0 so we probably won't need any of this
 # and we would listen on not the broadcast address but probably the IP of the interface or soemthing
-def get_broadcast_addresses():
+# when we do listeners on broadcast, we need to specify either "any", or we need to specify
+# the interface we are listening on
+def get_interface_addresses():
     interfaces = netifaces.interfaces()
-    interface_broadcasts = []
+    interface_addrs = []
 
     for interface in interfaces:
         addresses = netifaces.ifaddresses(interface)
         if netifaces.AF_INET in addresses:
             ipv4_info = addresses[netifaces.AF_INET][0]
-            broadcast_address = ipv4_info.get('broadcast')
-            if broadcast_address:
-                interface_broadcasts.append(broadcast_address)
+            interface_addr = ipv4_info.get('addr')
+            if interface_addr:
+                interface_addrs.append(interface_addr)
 
-    print(f'broadcast addresses are: {interface_broadcasts}')
-    return interface_broadcasts
+    print(f'interfaces addresses are: {interface_addrs}')
+    return interface_addrs
 
 def osc_handler(address, *args):
     print(f' osc handler received address {address}')
@@ -199,26 +201,32 @@ class OSCReceiver:
         self.repeat = args.repeat
 
         # only one thread because we don't have much data
-        osc_startup(execthreadscount=1)
+        osc_startup()
 
         if args.address == "" :
 
-            addresses = get_broadcast_addresses()
-            # this is what broadcast looks like
+            addresses = get_interface_addresses()
+            # if there's only one address use it
+            if len(addresses) == 1:
+                args.address = addresses[0]
+            # if there's multiple pick the non localhost one
             for a in addresses:
                 # don't send on loopback?
-                if a != '127.255.255.255':
+                if a != '127.0.0.1':
                     args.address = a
                     break
         
         print(f'OSC listening for broadcasts on {args.address}')
 
-        osc_broadcast_server(args.address,  OSC_PORT, 'server')
+# it appears when setting up UDP listneres generaly you don't need to do anything different
+# for broadcast
+#        osc_broadcast_server(args.address,  OSC_PORT, 'server')
+        osc_udp_server(args.address,  OSC_PORT, 'server')
 
         # setting a single method for all the messages, so we can debug eaiser
-        osc_method('/LC/*', osc_handler, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA,
-            extra=self)
-
+        osc_method('/LC/*', osc_handler, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
+#        osc_method('/LC/*', osc_handler, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA,
+#            extra=self)
 
 
 
@@ -238,6 +246,8 @@ def xmit_thread(xmit):
         d = delay - (time() - t1)
         if (d > 0.002):
             sleep(d)
+
+        osc_process()
 
 def xmit_thread_init(xmit):
     global BACKGROUND_THREAD, xmit_event

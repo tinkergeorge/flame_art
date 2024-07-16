@@ -43,6 +43,7 @@ import sys
 
 
 OSC_PORT = 6511 # a random number. there is no OSC port because OSC is not a protocol
+# OSC_PORT = 10000 # a random number. there is no OSC port because OSC is not a protocol
 
 debug = False
 ARGS = None
@@ -120,9 +121,9 @@ class OSCTransmitter:
 
             with osc_lock:
 # this sends three packets
-                #osc_send(msg_gyro, 'client')
-                #osc_send(msg_rotation, 'client')
-                #osc_send(msg_gravity, 'client')
+#                osc_send(msg_gyro, 'client')
+#                osc_send(msg_rotation, 'client')
+#                osc_send(msg_gravity, 'client')
 
 # none of these ways to send three messages in a single packet work, thanks chatgpt
                 #raw_data = msg_gyro.dgram + msg_rotation.dgram + msg_gravity.dgram
