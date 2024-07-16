@@ -32,11 +32,17 @@ import json
 from threading import Thread, Event
 import math
 
+from osc4py3.as_eventloop import *
+from osc4py3 import oscbuildparse
+from osc4py3 import oscmethod as osm
+import netifaces
+
 import glob 
 import importlib
 import os
 import sys
 
+OSC_PORT = 6511 # a random number. there is no OSC port because OSC is not a protocol
 
 ARTNET_PORT = 6454
 ARTNET_UNIVERSE = 0
@@ -155,6 +161,67 @@ class LightCurveTransmitter:
     def print_solenoid(self):
         print(self.solenoids)
 
+# it appears in python when we set up a broadcast listerner
+# we would just listen on 0.0.0.0 so we probably won't need any of this
+# and we would listen on not the broadcast address but probably the IP of the interface or soemthing
+def get_broadcast_addresses():
+    interfaces = netifaces.interfaces()
+    interface_broadcasts = []
+
+    for interface in interfaces:
+        addresses = netifaces.ifaddresses(interface)
+        if netifaces.AF_INET in addresses:
+            ipv4_info = addresses[netifaces.AF_INET][0]
+            broadcast_address = ipv4_info.get('broadcast')
+            if broadcast_address:
+                interface_broadcasts.append(broadcast_address)
+
+    print(f'broadcast addresses are: {interface_broadcasts}')
+    return interface_broadcasts
+
+def osc_handler(address, *args):
+    print(f' osc handler received address {address}')
+
+    # todo: unpack out the address, and the parameters, 
+
+class OSCReceiver:
+    def __init__(self, args) -> None:
+
+        # rotational speed around pitch, yaw, roll        
+        self.gyro = [0.0] * 3
+        # absolute rotational position compared to a fixed reference frame
+        self.rotation = [0.0] * 3
+        # the direction in which gravity currently is
+        self.gravity = [0.0] * 3
+
+        self.debug = debug
+        self.sequence = 0
+        self.repeat = args.repeat
+
+        # only one thread because we don't have much data
+        osc_startup(execthreadscount=1)
+
+        if args.address == "" :
+
+            addresses = get_broadcast_addresses()
+            # this is what broadcast looks like
+            for a in addresses:
+                # don't send on loopback?
+                if a != '127.255.255.255':
+                    args.address = a
+                    break
+        
+        print(f'OSC listening for broadcasts on {args.address}')
+
+        osc_broadcast_server(args.address,  OSC_PORT, 'server')
+
+        # setting a single method for all the messages, so we can debug eaiser
+        osc_method('/LC/*', osc_handler, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA,
+            extra=self)
+
+
+
+
 # background 
 
 # set when you want output
@@ -224,7 +291,6 @@ def print_bytearray(b: bytearray) -> None:
             l -= 1
             o += 1
 
-
 # Dynamically import patterns
 
 def import_patterns():
@@ -282,6 +348,7 @@ def args_init():
     parser.add_argument('--config','-c', type=str, default="flame_test.cnf", help='Fire Art Controller configuration file')
 
     parser.add_argument('--pattern', '-p', default="pulse", type=str, help=f'pattern one of: {patterns()}')
+    parser.add_argument('--address', '-a', default="0.0.0.0", type=str, help=f'address to listen OSC on defaults to broadcast on non-loop')
     parser.add_argument('--fps', '-f', default=15, type=int, help='frames per second')
     parser.add_argument('--repeat', '-r', default=1, type=int, help="number of times to run pattern")
 
@@ -307,8 +374,7 @@ def main():
 
     args = args_init()
 
-    print('Controllers is what')
-    print(args.controllers)
+    recv = OSCReceiver(args)
 
     xmit = LightCurveTransmitter(args)
 
