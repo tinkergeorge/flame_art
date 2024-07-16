@@ -113,8 +113,10 @@ class OSCTransmitter:
         msg_rotation = oscbuildparse.OSCMessage('/LC/rotation', ',fff', self.rotation)
         msg_gravity = oscbuildparse.OSCMessage('/LC/gravity', ',fff', self.gravity)
 
+        delta = time() - self.start
+        bundle = oscbuildparse.OSCBundle(oscbuildparse.float2timetag(delta), (msg_gyro, msg_rotation, msg_gravity))
+
         try:
-            raw_data = b""
 
             with osc_lock:
 # this sends three packets
@@ -122,7 +124,7 @@ class OSCTransmitter:
                 #osc_send(msg_rotation, 'client')
                 #osc_send(msg_gravity, 'client')
 
-# none of these ways to send three messages in a single packet work, thanks chatgps
+# none of these ways to send three messages in a single packet work, thanks chatgpt
                 #raw_data = msg_gyro.dgram + msg_rotation.dgram + msg_gravity.dgram
                 #osc_method.sendrawdata(raw_data, 'client')
 
@@ -135,12 +137,9 @@ class OSCTransmitter:
 
 # let's go back to bundles. Note these aren't using real NTP times because
 # we don't expect the arduino to either
-                delta = time() - self.start
-                bundle = oscbuildparse.OSCBundle(oscbuildparse.float2timetag(delta), (msg_gyro, msg_rotation, msg_gravity))
                 osc_send(bundle, 'client')
 
-
-# this sends one packet
+# and for some reason we call osc_processe
 
                 osc_process()
 
