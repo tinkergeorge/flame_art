@@ -1,9 +1,24 @@
 #include <Adafruit_BNO08x.h>
 
+#include <SPI.h>
+#include <WiFi101.h>
+#include <WiFiUdp.h>
+
 #define BNO08X_RESET -1
 
 Adafruit_BNO08x bno08x(BNO08X_RESET);
 sh2_SensorValue_t bnoSensorValue;
+
+int status = WL_IDLE_STATUS;
+
+// Create a secrets file with your network info that looks like:
+// #define IMU_SSID "my ssid"
+// #define IMU_PASS "password"
+#include "imu_secrets.h"
+char SSID[] = IMU_SSID;
+char PASS[] = IMU_PASS;
+
+WiFiUDP udp;
 
 void setup(void)
 {
@@ -13,10 +28,37 @@ void setup(void)
 
   Serial.println("Light Curve IMU");
 
+  WiFi.setPins(8, 7, 4, 2);
+  if (WiFi.status() == WL_NO_SHIELD)
+  {
+    Serial.println("WiFi shield not detected. This means something is wrong with the code or you are running this on a different board. Goodbye.");
+    while (true)
+    {
+      delay(10);
+    }
+  }
+
+  int checkCount = 0;
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    if (checkCount <= 0)
+    {
+      Serial.print("Trying to connect to SSID: ");
+      Serial.println(SSID);
+      WiFi.begin(SSID, PASS);
+      checkCount = 25;
+    }
+
+    delay(400);
+    checkCount--;
+  }
+  Serial.println("Connected to wifi");
+  printWiFiStatus();
+
   if (!bno08x.begin_I2C())
   {
     Serial.println("Failed to find BNO08x chip");
-    while (1)
+    while (true)
     {
       delay(10);
     }
@@ -42,6 +84,21 @@ void setup(void)
 
   Serial.println("Reading events");
   delay(100);
+}
+
+void printWiFiStatus()
+{
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
 }
 
 void tellBnoWhatReportsWeWant(void)
@@ -79,6 +136,21 @@ void loop()
     Serial.print(bnoSensorValue.un.gameRotationVector.j);
     Serial.print(" k: ");
     Serial.println(bnoSensorValue.un.gameRotationVector.k);
+
+    String s = String("");
+
+    s += "Game Rotation Vector - r: ";
+    s += bnoSensorValue.un.gameRotationVector.real;
+    s += " i: ";
+    s += bnoSensorValue.un.gameRotationVector.i;
+    s += " j: ";
+    s += bnoSensorValue.un.gameRotationVector.j;
+    s += " k: ";
+    s += bnoSensorValue.un.gameRotationVector.k;
+
+    udp.beginPacket(IPAddress(255, 255, 255, 255), 6511);
+    udp.write(s.c_str());
+    udp.endPacket();
     break;
   }
 }
