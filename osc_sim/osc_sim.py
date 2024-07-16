@@ -29,11 +29,12 @@
 
 from time import sleep, time
 import argparse
-from threading import Thread, Event
+from threading import Thread, Event, Lock
 import math
+import logging
 
 from osc4py3.as_eventloop import *
-from osc4py3 import oscbuildparse
+from osc4py3 import oscbuildparse, oscchannel, oscmethod as osm
 
 import netifaces
 
@@ -63,6 +64,8 @@ def get_broadcast_addresses():
     print(f'broadcast addresses are: {interface_broadcasts}')
     return interface_broadcasts
 
+osc_lock = Lock()
+
 class OSCTransmitter:
 
     def __init__(self, args) -> None:
@@ -77,6 +80,8 @@ class OSCTransmitter:
         self.debug = debug
         self.sequence = 0
         self.repeat = args.repeat
+
+        self.start = time()
 
         # init the osc system but only on thread because we don't have
         # much data
@@ -99,24 +104,48 @@ class OSCTransmitter:
         print(f'sending broadcast on {args.address}')
 
 
-
-
     # call repeatedly from the thread to transmit 
     def transmit(self) -> None:
 
         print(f'transmit') if self.debug else None
 
         msg_gyro = oscbuildparse.OSCMessage('/LC/gyro', ',fff', self.gyro)
-        msg_rotation = oscbuildparse.OSCMessage('LC/rotation', ',fff', self.rotation)
+        msg_rotation = oscbuildparse.OSCMessage('/LC/rotation', ',fff', self.rotation)
         msg_gravity = oscbuildparse.OSCMessage('/LC/gravity', ',fff', self.gravity)
 
-        #osc_send([msg_gyro, msg_rotation, msg_gravity], 'client' )
-        osc_send(msg_gyro, 'client')
-        osc_send(msg_rotation, 'client')
-        osc_send(msg_gravity, 'client')
+        try:
+            raw_data = b""
 
-        osc_process()
+            with osc_lock:
+# this sends three packets
+                #osc_send(msg_gyro, 'client')
+                #osc_send(msg_rotation, 'client')
+                #osc_send(msg_gravity, 'client')
 
+# none of these ways to send three messages in a single packet work, thanks chatgps
+                #raw_data = msg_gyro.dgram + msg_rotation.dgram + msg_gravity.dgram
+                #osc_method.sendrawdata(raw_data, 'client')
+
+                #raw_data += oscbuildparse.encode_packet(msg_gyro)
+                #raw_data += oscbuildparse.encode_packet(msg_rotation)
+                #raw_data += oscbuildparse.encode_packet(msg_gravity)
+
+                #oscchannel.send_packet(raw_data, 'client')
+                #osm.sendrawdata(raw_data, 'client')
+
+# let's go back to bundles. Note these aren't using real NTP times because
+# we don't expect the arduino to either
+                delta = time() - self.start
+                bundle = oscbuildparse.OSCBundle(oscbuildparse.float2timetag(delta), (msg_gyro, msg_rotation, msg_gravity))
+                osc_send(bundle, 'client')
+
+
+# this sends one packet
+
+                osc_process()
+
+        except Exception as e:
+            logging.exception("an exception occurred with the osc sender")
 
     def fill_gyro(self, val: float):
         self.gyro= [val] * 3
@@ -138,11 +167,10 @@ class OSCTransmitter:
 
 # background 
 
-
 def xmit_thread(xmit):
     while True:
-        osc_process()
-        sleep(0.01)
+        xmit.transmit()
+        sleep(1.0 / 25.0)
 
 def xmit_thread_init(xmit):
     global BACKGROUND_THREAD, xmit_event
@@ -161,35 +189,47 @@ def pattern_rotate_all(xmit: OSCTransmitter):
     xmit.gyro[0] = 1 / secs
     for i in range(steps):
         xmit.rotation[0] += 1.0 / steps
+        xmit.transmit()
         sleep(secs / steps)
+
     xmit.gyro[0] = 0.0
     xmit.rotation[0] = 0.0
+    xmit.transmit()
 
 
     # one rotation in N secs on Y axis
     xmit.gyro[1] = 1 / secs
     for i in range(steps):
         xmit.rotation[1] += 1.0 / steps
+        xmit.transmit()
         sleep(secs / steps)
+
     xmit.gyro[1] = 0.0
     xmit.rotation[1] = 0.0
+    xmit.transmit()
 
     # one rotation in N secs on Z axis
     xmit.gyro[2] = 1 / secs
     for i in range(steps):
         xmit.rotation[2] += 1.0 / steps
+        xmit.transmit()
         sleep(secs / steps)
+
     xmit.gyro[2] = 0.0
     xmit.rotation[2] = 0.0
+    xmit.transmit()
 
     # same on all
     # one rotation in N secs on X axis
     xmit.fill_gyro(1 / secs)
     for i in range(steps):
         xmit.fill_rotation( xmit.rotation[0] + (1.0 / steps) )
+        xmit.transmit()
         sleep(secs / steps)
+
     xmit.fill_gyro(0.0)
     xmit.fill_rotation(0.0)
+    xmit.transmit()
 
 
 
@@ -213,6 +253,8 @@ def args_init():
 def main():
 
     global ARGS
+
+    logging.basicConfig(level=logging.DEBUG)
 
     args = args_init()
 
