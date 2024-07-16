@@ -48,6 +48,9 @@ OSC_PORT = 6511 # a random number. there is no OSC port because OSC is not a pro
 debug = False
 ARGS = None
 
+NOZZLE_BUTTON_LEN = 30
+CONTROL_BUTTON_LEN = 3
+
 # returns a list of the IPv4 broadcast strings
 
 def get_broadcast_addresses():
@@ -77,6 +80,11 @@ class OSCTransmitter:
         self.rotation = [0.0] * 3
         # the direction in which gravity currently is
         self.gravity = [0.0] * 3
+
+        # array of values for the nozzle buttons
+        self.nozzles = [False] * NOZZLE_BUTTON_LEN
+        # array of values for program control buttons
+        self.controls = [False] * CONTROL_BUTTON_LEN
 
         self.debug = debug
         self.sequence = 0
@@ -114,6 +122,23 @@ class OSCTransmitter:
         msg_rotation = oscbuildparse.OSCMessage('/LC/rotation', ',fff', self.rotation)
         msg_gravity = oscbuildparse.OSCMessage('/LC/gravity', ',fff', self.gravity)
 
+        # represent button state most efficiently as types T and F
+        # according to the internet, this isn't as slow as it looks, there's special case
+        # prealloc code in string that makes it non terrible
+        # also: it seems unnecessary to send both the type string and the value, but OSCMessage validates, so this is required.
+        # send fails silently if you don't do this
+        nozzles_str = ','
+        for v in self.nozzles:
+            nozzles_str += 'T' if v else 'F'
+        msg_nozzles = oscbuildparse.OSCMessage('/LC/nozzles', nozzles_str, self.nozzles)
+
+        controls_str = ','
+        for v in self.controls:
+            controls_str += 'T' if v else 'F'
+        msg_controls = oscbuildparse.OSCMessage('/LC/controls', controls_str, self.controls)
+
+
+
 #        delta = time() - self.start
 #        bundle = oscbuildparse.OSCBundle(oscbuildparse.float2timetag(delta), (msg_gyro, msg_rotation, msg_gravity))
         bundle = oscbuildparse.OSCBundle(oscbuildparse.OSC_IMMEDIATELY, (msg_gyro, msg_rotation, msg_gravity))
@@ -125,6 +150,9 @@ class OSCTransmitter:
 #                osc_send(msg_gyro, 'client')
 #                osc_send(msg_rotation, 'client')
 #                osc_send(msg_gravity, 'client')
+
+                osc_send(msg_nozzles, 'client')
+                osc_send(msg_controls, 'client')
 
 # none of these ways to send three messages in a single packet work, thanks chatgpt
                 #raw_data = msg_gyro.dgram + msg_rotation.dgram + msg_gravity.dgram
@@ -140,6 +168,7 @@ class OSCTransmitter:
 # let's go back to bundles. Note these aren't using real NTP times because
 # we don't expect the arduino to either
                 osc_send(bundle, 'client')
+
 
 # and for some reason we call osc_processe
 
@@ -165,6 +194,15 @@ class OSCTransmitter:
 
     def print_gravity(self):
         print(self.gravity)
+
+    def fill_nozzles(self, val):
+        for i in range(len(self.nozzles)):
+            self.nozzles[i] = val
+
+    def fill_controls(self, val):
+        for i in range(len(self.nozzles)):
+            self.nozzles[i] = val
+
 
 # background 
 

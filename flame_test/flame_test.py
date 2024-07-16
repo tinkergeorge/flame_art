@@ -48,6 +48,9 @@ ARTNET_PORT = 6454
 ARTNET_UNIVERSE = 0
 ARTNET_HEADER_SIZE = 18
 
+NOZZLE_BUTTON_LEN = 30
+CONTROL_BUTTON_LEN = 3
+
 debug = False
 ARGS = None
 
@@ -183,7 +186,7 @@ def get_interface_addresses():
 
 # handler has the address then a tuple of the arguments then the self argument of the receiver
 # Not yet sure how to get the timestamp out of the bundle
-# 
+# Bundle receiption hasn't worked
 
 # generic handler good for debugging
 def osc_handler_all (address, *args):
@@ -191,24 +194,33 @@ def osc_handler_all (address, *args):
     print(f' positional arguments: {args}')
 
 # specific handlers good for efficiency
-def osc_handler_gyro(address, *args):
-    # print(f' osc handler received address {address}')
-    osc_receiver = args[1]
-    osc_receiver.gyro = args[0]
-    print(f' osc: gyro {args[0]}') if osc_receiver.debug else None
+def osc_handler_gyro(val, osc_receiver):
+    # print(f' osc handler received gyro')
+    osc_receiver.gyro = val
+    print(f' osc: gyro {val}') if osc_receiver.debug else None
  
-def osc_handler_rotation(address, *args):
-    # print(f' osc handler received address {address}')
-    osc_receiver = args[1]
-    osc_receiver.rotation = args[0]
-    print(f' osc: rotation {args[0]}') if osc_receiver.debug else None
+def osc_handler_rotation(val, osc_receiver):
+    # print(f' osc handler received rotation')
+    osc_receiver.rotation = val
+    print(f' osc: rotation {val}') if osc_receiver.debug else None
 
-def osc_handler_gravity(address, *args):
-    # print(f' osc handler received address {address}')
-    osc_receiver = args[1]
-    osc_receiver.gravity = args[0]
-    print(f' osc: rotation {args[0]}') if osc_receiver.debug else None
+def osc_handler_gravity(val, osc_receiver):
+    # print(f' osc handler received gravity')
+    osc_receiver.gravity = val
+    print(f' osc: gravity {val}') if osc_receiver.debug else None
 
+def osc_handler_nozzles(val, osc_receiver):
+    # print(f' osc nozzles received {val}')
+    osc_receiver.nozzles = val
+    print(f' osc: nozzles {val}') if osc_receiver.debug else None
+
+def osc_handler_controls(val, osc_receiver):
+    # print(f' osc controls received {val}')
+    osc_receiver.controls = val
+    print(f' osc: controls {val}') if osc_receiver.debug else None
+
+
+#this has never worked
 def osc_handler_bundle(address, *args):
     print(f' osc bundle handler received address {address}')
     print(f' osc handler bundle: args {args}')
@@ -224,7 +236,11 @@ class OSCReceiver:
         # the direction in which gravity currently is
         self.gravity = [0.0] * 3
 
+        self.nozzles = [False] * NOZZLE_BUTTON_LEN
+        self.controls = [False] * CONTROL_BUTTON_LEN
+
         self.debug = debug
+#        self.debug = True
         self.sequence = 0
         self.repeat = args.repeat
 
@@ -255,9 +271,13 @@ class OSCReceiver:
 
         # setting individual methods for each, slightly more efficient - but won't get timestamp bundles -
         # so disabling if we're using bundles
-        osc_method('/LC/gyro', osc_handler_gyro, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
-        osc_method('/LC/rotation', osc_handler_rotation, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
-        osc_method('/LC/gravity', osc_handler_gravity, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
+        osc_method('/LC/gyro', osc_handler_gyro, argscheme=osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
+        osc_method('/LC/rotation', osc_handler_rotation, argscheme=osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
+        osc_method('/LC/gravity', osc_handler_gravity, argscheme=osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
+
+        osc_method('/LC/nozzles', osc_handler_nozzles, argscheme=osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
+        osc_method('/LC/controls', osc_handler_controls, argscheme=osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
+
 # this is a single method for everything good for debugging
 #        osc_method('/*', osc_handler, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA,
 #            extra=self)
