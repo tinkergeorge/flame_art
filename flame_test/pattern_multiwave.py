@@ -11,7 +11,7 @@ from time import sleep
 # create an array with the pattern
 # move the pattern through the nozzles
 
-def pattern_multiwave(xmit: ft.LightCurveTransmitter):
+def pattern_multiwave(xmit: ft.LightCurveTransmitter, recv: ft.OSCReceiver):
 
   waveSteps = 20  # Total steps in the wave (up and down), even number
   pattern = [0.0] * waveSteps;

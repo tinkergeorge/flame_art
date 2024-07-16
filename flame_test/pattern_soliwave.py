@@ -9,7 +9,7 @@ from time import sleep
 # use a wave pattern through the sculpture numerically but 
 # only use the solinoids, with the flame wide open
 
-def pattern_soliwave(xmit: ft.LightCurveTransmitter):
+def pattern_soliwave(xmit: ft.LightCurveTransmitter, recv: ft.OSCReceiver):
 
     period = 0.200
 
@@ -34,12 +34,12 @@ def pattern_soliwave(xmit: ft.LightCurveTransmitter):
         sleep(period)
 
     for i in range(xmit.nozzles-1,0,-1):
-        print(f'turn on solinid {i}')
+        print(f'turn on solinoid {i}')
         xmit.solenoids[i] = 1
         sleep(period)
 
     for i in range(xmit.nozzles-1,0,-1):
-        print(f'turn off solinid {i}')
+        print(f'turn off solinoid {i}')
         xmit.solenoids[i] = 0
         sleep(period)
 

@@ -6,7 +6,7 @@
 import flame_test as ft
 from time import sleep
 
-def pattern_stop(xmit: ft.LightCurveTransmitter):
+def pattern_stop(xmit: ft.LightCurveTransmitter, recv: ft.OSCReceiver):
 
     print('Shutting down fire')
 

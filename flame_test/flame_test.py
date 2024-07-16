@@ -74,7 +74,7 @@ def _artnet_packet(universe: int, sequence: int, packet: bytearray ):
 
     packet[0:12] = b'Art-Net\x00\x00\x50\x00\x14'
 
-    packet[12] = sequence
+    packet[12] = sequence & 0xff
     packet[13] = 0
     packet[14] = universe & 0xff
     packet[15] = (universe >> 8) & 0xff
@@ -128,7 +128,7 @@ class LightCurveTransmitter:
                     print(f'active at {i+offset} out of range {self.solenoids[i+offset]} skipping')
                     return
                 if (self.debug and 
-                        (se.fapertures[i+offset] < 0.0) or (self.apertures[i+offset] > 1.0)):
+                        (self.apertures[i+offset] < 0.0) or (self.apertures[i+offset] > 1.0)):
                     print(f'flow at {i+offset} out of range {self.apertures[i+offset]} skipping')
 
                 if self.apertures[i+offset] < 0.10:
@@ -181,10 +181,38 @@ def get_interface_addresses():
     print(f'interfaces addresses are: {interface_addrs}')
     return interface_addrs
 
-def osc_handler(address, *args):
-    print(f' osc handler received address {address}')
+# handler has the address then a tuple of the arguments then the self argument of the receiver
+# Not yet sure how to get the timestamp out of the bundle
+# 
 
-    # todo: unpack out the address, and the parameters, 
+# generic handler good for debugging
+def osc_handler_all (address, *args):
+    print(f' osc handler received address {address}')
+    print(f' positional arguments: {args}')
+
+# specific handlers good for efficiency
+def osc_handler_gyro(address, *args):
+    # print(f' osc handler received address {address}')
+    osc_receiver = args[1]
+    osc_receiver.gyro = args[0]
+    print(f' osc: gyro {args[0]}') if osc_receiver.debug else None
+ 
+def osc_handler_rotation(address, *args):
+    # print(f' osc handler received address {address}')
+    osc_receiver = args[1]
+    osc_receiver.rotation = args[0]
+    print(f' osc: rotation {args[0]}') if osc_receiver.debug else None
+
+def osc_handler_gravity(address, *args):
+    # print(f' osc handler received address {address}')
+    osc_receiver = args[1]
+    osc_receiver.gravity = args[0]
+    print(f' osc: rotation {args[0]}') if osc_receiver.debug else None
+
+def osc_handler_bundle(address, *args):
+    print(f' osc bundle handler received address {address}')
+    print(f' osc handler bundle: args {args}')
+
 
 class OSCReceiver:
     def __init__(self, args) -> None:
@@ -219,15 +247,25 @@ class OSCReceiver:
         print(f'OSC listening for broadcasts on {args.address}')
 
 # it appears when setting up UDP listneres generaly you don't need to do anything different
-# for broadcast
-#        osc_broadcast_server(args.address,  OSC_PORT, 'server')
+# for broadcast so just set up the udp server
         osc_udp_server(args.address,  OSC_PORT, 'server')
 
-        # setting a single method for all the messages, so we can debug eaiser
-        osc_method('/LC/*', osc_handler, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
-#        osc_method('/LC/*', osc_handler, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA,
-#            extra=self)
+        # setting up a catch-all can be good for debugging
+        # osc_method('*', osc_handler_all, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
 
+        # setting individual methods for each, slightly more efficient - but won't get timestamp bundles -
+        # so disabling if we're using bundles
+        osc_method('/LC/gyro', osc_handler_gyro, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
+        osc_method('/LC/rotation', osc_handler_rotation, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
+        osc_method('/LC/gravity', osc_handler_gravity, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA, extra=self)
+# this is a single method for everything good for debugging
+#        osc_method('/*', osc_handler, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA + osm.OSCARG_EXTRA,
+#            extra=self)
+# this receives bundles and will check on timestamps
+# getting bundles is not working. Therefore for now will just register the individual paths
+#        osc_method("#bundle", osc_handler_bundle, argscheme=osm.OSCARG_DATAUNPACK + osm.OSCARG_EXTRA, extra=self)
+#        osc_method("#*", osc_handler_bundle, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATA)
+#        print(f' registered bundle handler')
 
 
 # background 
@@ -326,10 +364,10 @@ def import_patterns():
 def patterns():
     return ' '.join(PATTERN_FUNCTIONS.keys())
 
-def pattern_execute(pattern: str, xmit) -> bool:
+def pattern_execute(pattern: str, xmit, recv) -> bool:
 
     if pattern in PATTERN_FUNCTIONS:
-        PATTERN_FUNCTIONS[pattern](xmit)
+        PATTERN_FUNCTIONS[pattern](xmit, recv)
     else:
         return False
 
@@ -339,14 +377,14 @@ def pattern_insert(pattern_name: str, pattern_fn):
     PATTERN_FUNCTIONS[pattern_name] = pattern_fn
 
 
-def pattern_multipattern(xmit: LightCurveTransmitter):
+def pattern_multipattern(xmit: LightCurveTransmitter, recv: OSCReceiver):
 
     print(f'Starting multipattern pattern')
 
     for _ in range(xmit.repeat):
         for name, fn in PATTERN_FUNCTIONS.items():
             if name != 'multipattern':
-                fn(xmit)
+                fn(xmit, recv)
 
     print(f'Ending multipattern pattern')
 
@@ -396,7 +434,7 @@ def main():
 
     # run it bro
     for _ in range(args.repeat):
-        pattern_execute(args.pattern, xmit)
+        pattern_execute(args.pattern, xmit, recv)
 
 
 # only effects when we're being run as a module but whatever

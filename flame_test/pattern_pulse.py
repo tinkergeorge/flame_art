@@ -7,7 +7,7 @@ import flame_test as ft
 from time import sleep
 
 
-def pattern_pulse(xmit: ft.LightCurveTransmitter):
+def pattern_pulse(xmit: ft.LightCurveTransmitter, recv: ft.OSCReceiver):
 
     print(f'Starting Pulse Pattern')
 

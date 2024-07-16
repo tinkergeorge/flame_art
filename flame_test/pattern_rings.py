@@ -13,7 +13,7 @@ upper_diagonal = [20, 21, 22, 23, 24]
 upper_star = [25, 26, 27, 28, 29]
 sleep_between = 0.5
 
-def pattern_rings(xmit: ft.LightCurveTransmitter):
+def pattern_rings(xmit: ft.LightCurveTransmitter, recv: ft.OSCReceiver):
     print(f'Starting rings pattern')
     xmit.fill_solenoids(0)
     xmit.fill_apertures(1.0)

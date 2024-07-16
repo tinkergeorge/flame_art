@@ -6,7 +6,7 @@
 import flame_test as ft
 from time import sleep
 
-def pattern_wave(xmit: ft.LightCurveTransmitter):
+def pattern_wave(xmit: ft.LightCurveTransmitter, recv: ft.OSCReceiver):
 
     print('Starting Wave Pattern')
     wait = 0.500

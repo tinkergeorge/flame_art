@@ -114,8 +114,9 @@ class OSCTransmitter:
         msg_rotation = oscbuildparse.OSCMessage('/LC/rotation', ',fff', self.rotation)
         msg_gravity = oscbuildparse.OSCMessage('/LC/gravity', ',fff', self.gravity)
 
-        delta = time() - self.start
-        bundle = oscbuildparse.OSCBundle(oscbuildparse.float2timetag(delta), (msg_gyro, msg_rotation, msg_gravity))
+#        delta = time() - self.start
+#        bundle = oscbuildparse.OSCBundle(oscbuildparse.float2timetag(delta), (msg_gyro, msg_rotation, msg_gravity))
+        bundle = oscbuildparse.OSCBundle(oscbuildparse.OSC_IMMEDIATELY, (msg_gyro, msg_rotation, msg_gravity))
 
         try:
 

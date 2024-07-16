@@ -6,7 +6,7 @@
 import flame_test as ft
 from time import sleep
 
-def pattern_fast(xmit: ft.LightCurveTransmitter):
+def pattern_fast(xmit: ft.LightCurveTransmitter, recv: ft.OSCReceiver):
     print(f'Starting fast pattern')
     xmit.fill_solenoids(0)
     xmit.fill_apertures(1.0)
