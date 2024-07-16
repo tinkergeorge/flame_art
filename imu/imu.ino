@@ -4,6 +4,9 @@
 #include <WiFi101.h>
 #include <WiFiUdp.h>
 
+// From "OSC" library in Arduino. You can find it by searching for "Open Sound Control" in library manager.
+#include <OSCMessage.h>
+
 #define BNO08X_RESET -1
 
 Adafruit_BNO08x bno08x(BNO08X_RESET);
@@ -137,19 +140,14 @@ void loop()
     Serial.print(" k: ");
     Serial.println(bnoSensorValue.un.gameRotationVector.k);
 
-    String s = String("");
+    OSCMessage msg("/lc/rotation");
 
-    s += "Game Rotation Vector - r: ";
-    s += bnoSensorValue.un.gameRotationVector.real;
-    s += " i: ";
-    s += bnoSensorValue.un.gameRotationVector.i;
-    s += " j: ";
-    s += bnoSensorValue.un.gameRotationVector.j;
-    s += " k: ";
-    s += bnoSensorValue.un.gameRotationVector.k;
+    msg.add(bnoSensorValue.un.gameRotationVector.i);
+    msg.add(bnoSensorValue.un.gameRotationVector.j);
+    msg.add(bnoSensorValue.un.gameRotationVector.k);
 
     udp.beginPacket(IPAddress(255, 255, 255, 255), 6511);
-    udp.write(s.c_str());
+    msg.send(udp);
     udp.endPacket();
     break;
   }
