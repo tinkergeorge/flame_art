@@ -78,8 +78,9 @@ class OSCTransmitter:
         self.sequence = 0
         self.repeat = args.repeat
 
-        # init the osc system
-        osc_startup()
+        # init the osc system but only on thread because we don't have
+        # much data
+        osc_startup(execthreadscount=1)
 
         # this is what unicast looks like
         # osc_udp_client("192.168.0.4",  OSC_PORT, 'client')
@@ -94,7 +95,7 @@ class OSCTransmitter:
                     args.address = a
                     break
 
-        osc_udp_client(args.address,  OSC_PORT, 'client')
+        osc_broadcast_client(args.address,  OSC_PORT, 'client')
         print(f'sending broadcast on {args.address}')
 
 
@@ -118,16 +119,13 @@ class OSCTransmitter:
 
 
     def fill_gyro(self, val: float):
-        for i in range(0,self.gyro):
-            self.gyro[i] = val
+        self.gyro= [val] * 3
 
     def fill_rotation(self, val: int):
-        for i in range(0,self.rotation):
-            self.rotation[i] = val
+        self.rotation = [val] * 3
 
     def fill_gravity(self, val: int):
-        for i in range(0,self.graviy):
-            self.gravity[i] = val
+        self.gravity = [val] * 3
 
     def print_gyro(self):
         print(self.gyro)
