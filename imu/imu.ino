@@ -145,7 +145,7 @@ void loop()
     Serial.print(" z: ");
     Serial.println(bnoSensorValue.un.gravity.z);
 
-    OSCMessage gravityMsg("/lc/gravity");
+    OSCMessage gravityMsg("/LC/gravity");
 
     gravityMsg.add(bnoSensorValue.un.gameRotationVector.i);
     gravityMsg.add(bnoSensorValue.un.gameRotationVector.j);
@@ -171,7 +171,7 @@ void loop()
     Serial.print(" k: ");
     Serial.println(bnoSensorValue.un.gameRotationVector.k);
 
-    OSCMessage rotationMsg("/lc/rotation");
+    OSCMessage rotationMsg("/LC/rotation");
 
     rotationMsg.add(bnoSensorValue.un.gameRotationVector.i);
     rotationMsg.add(bnoSensorValue.un.gameRotationVector.j);
