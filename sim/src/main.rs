@@ -7,7 +7,7 @@ use rand::random;
 use rosc::OscPacket;
 
 const ARTNET_PORT: u16 = 6454;
-const OSC_PORT: u16 = 6511;
+const OSC_PORT: u16 = 6512;
 
 struct Face {
     center_vector: Vector3<f32>,
@@ -161,7 +161,7 @@ fn main() {
 
     window.set_light(Light::StickToCamera);
 
-    let mut arc_ball_camera = ArcBall::new(Point3::new(0.0f32, 0., 10.), Point3::origin());
+    let mut arc_ball_camera = ArcBall::new(Point3::new(0.0f32, 0., 25.), Point3::origin());
 
     let artnet_socket = create_socket(ARTNET_PORT);
     let osc_socket = create_socket(OSC_PORT);

@@ -190,8 +190,7 @@ def get_interface_addresses():
 
 # generic handler good for debugging
 def osc_handler_all (address, *args):
-    print(f' osc handler received address {address}')
-    print(f' positional arguments: {args}')
+    print(f' osc handler received address {address}; positional arguments: {args}')
 
 # specific handlers good for efficiency
 def osc_handler_gyro(val, osc_receiver):

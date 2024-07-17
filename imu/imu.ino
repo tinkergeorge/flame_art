@@ -26,8 +26,8 @@ WiFiUDP udp;
 void setup(void)
 {
   Serial.begin(115200);
-  while (!Serial)
-    delay(10);
+  // while (!Serial)
+  delay(200);
 
   Serial.println("Light Curve IMU");
 
@@ -85,6 +85,8 @@ void setup(void)
 
   tellBnoWhatReportsWeWant();
 
+  udp.begin(6510);
+
   Serial.println("Reading events");
   delay(100);
 }
@@ -115,7 +117,7 @@ void tellBnoWhatReportsWeWant(void)
 
 void loop()
 {
-  delay(10);
+  delay(50);
 
   if (bno08x.wasReset())
   {
@@ -146,7 +148,11 @@ void loop()
     msg.add(bnoSensorValue.un.gameRotationVector.j);
     msg.add(bnoSensorValue.un.gameRotationVector.k);
 
-    udp.beginPacket(IPAddress(255, 255, 255, 255), 6511);
+    // udp.beginMulticast(IPAddress(192, 168, 1, 255), 6511);
+    udp.beginPacket(IPAddress(192, 168, 1, 255), 6511);
+    msg.send(udp);
+    udp.endPacket();
+    udp.beginPacket(IPAddress(192, 168, 1, 255), 6512);
     msg.send(udp);
     udp.endPacket();
     break;
