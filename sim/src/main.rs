@@ -1,9 +1,13 @@
-use std::net::UdpSocket;
+use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 
 use artnet_protocol::ArtCommand;
 use kiss3d::{camera::ArcBall, light::Light, scene::SceneNode, window::Window};
 use nalgebra::{Point3, Translation3, UnitQuaternion, Vector3};
 use rand::random;
+use rosc::OscPacket;
+
+const ARTNET_PORT: u16 = 6454;
+const OSC_PORT: u16 = 6511;
 
 struct Face {
     center_vector: Vector3<f32>,
@@ -65,7 +69,6 @@ impl Face {
 }
 
 fn main() {
-    let socket = setup_socket();
     let c0: f32 = 5f32.sqrt() / 4.;
     let c1: f32 = (5. + 5f32.sqrt()) / 8.;
     let c2: f32 = (5. + 3. * 5f32.sqrt()) / 8.;
@@ -160,10 +163,14 @@ fn main() {
 
     let mut arc_ball_camera = ArcBall::new(Point3::new(0.0f32, 0., 10.), Point3::origin());
 
+    let artnet_socket = create_socket(ARTNET_PORT);
+    let osc_socket = create_socket(OSC_PORT);
+
     while !window.should_close() {
         window.set_framerate_limit(Some(60));
         window.render_with_camera(&mut arc_ball_camera);
-        receive_artnet(&mut faces, &socket);
+        receive_artnet(&mut faces, &artnet_socket);
+        receive_osc(&osc_socket);
         faces.iter_mut().for_each(|face| {
             // Update concentration
             if face.switch {
@@ -187,26 +194,50 @@ fn main() {
     }
 }
 
-fn setup_socket() -> UdpSocket {
-    let udp_socket = match UdpSocket::bind("0.0.0.0:6454") {
-        Ok(socket) => socket,
+fn create_socket(port: u16) -> UdpSocket {
+    let address = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), port);
+    match UdpSocket::bind(address) {
+        Ok(socket) => {
+            socket.set_nonblocking(true).unwrap();
+            socket
+        }
         Err(e) => {
-            println!("Error binding: {:?}", e);
+            println!("Error binding to address {:?}: {:?}", address, e);
             panic!();
         }
-    };
-    udp_socket.set_nonblocking(true).unwrap();
-    udp_socket
+    }
 }
 
-fn receive_artnet(faces: &mut [Face; 30], socket: &UdpSocket) {
-    let mut response_buf = [0u8; 65507];
-    let Ok((response_length, sender_address)) = socket.recv_from(&mut response_buf) else {
+fn receive_osc(socket: &UdpSocket) {
+    let mut inbox = [0u8; 65507];
+    let Ok((received_data_len, _sender_address)) = socket.recv_from(&mut inbox) else {
         // Received nothing
         return;
     };
 
-    match ArtCommand::from_buffer(&response_buf[..response_length]) {
+    let Ok((_, osc_packet)) = rosc::decoder::decode_udp(&inbox[..received_data_len]) else {
+        println!("Received incorrectly formatted packet at OSC port.");
+        return;
+    };
+    match osc_packet {
+        OscPacket::Message(msg) => {
+            println!("OSC address: {}", msg.addr);
+            println!("OSC arguments: {:?}", msg.args);
+        }
+        OscPacket::Bundle(bundle) => {
+            println!("OSC Bundle: {:?}", bundle);
+        }
+    }
+}
+
+fn receive_artnet(faces: &mut [Face; 30], socket: &UdpSocket) {
+    let mut inbox = [0u8; 65507];
+    let Ok((received_data_len, sender_address)) = socket.recv_from(&mut inbox) else {
+        // Received nothing
+        return;
+    };
+
+    match ArtCommand::from_buffer(&inbox[..received_data_len]) {
         Ok(ArtCommand::Output(output)) => {
             let data = output.data.as_ref();
             data.chunks_exact(2)
