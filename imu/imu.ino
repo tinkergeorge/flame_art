@@ -109,9 +109,13 @@ void printWiFiStatus()
 void tellBnoWhatReportsWeWant(void)
 {
   Serial.println("Setting desired reports");
-  if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR))
+  // if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR))
+  // {
+  //   Serial.println("Could not enable game rotation report");
+  // }
+  if (!bno08x.enableReport(SH2_GRAVITY))
   {
-    Serial.println("Could not enable game vector");
+    Serial.println("Could not enable gravity report");
   }
 }
 
@@ -132,7 +136,32 @@ void loop()
 
   switch (bnoSensorValue.sensorId)
   {
+  case SH2_GRAVITY:
+  {
+    Serial.print("Gravity - x: ");
+    Serial.print(bnoSensorValue.un.gravity.x);
+    Serial.print(" y: ");
+    Serial.print(bnoSensorValue.un.gravity.y);
+    Serial.print(" z: ");
+    Serial.println(bnoSensorValue.un.gravity.z);
+
+    OSCMessage gravityMsg("/lc/gravity");
+
+    gravityMsg.add(bnoSensorValue.un.gameRotationVector.i);
+    gravityMsg.add(bnoSensorValue.un.gameRotationVector.j);
+    gravityMsg.add(bnoSensorValue.un.gameRotationVector.k);
+
+    // udp.beginMulticast(IPAddress(192, 168, 1, 255), 6511);
+    udp.beginPacket(IPAddress(192, 168, 1, 255), 6511);
+    gravityMsg.send(udp);
+    udp.endPacket();
+    udp.beginPacket(IPAddress(192, 168, 1, 255), 6512);
+    gravityMsg.send(udp);
+    udp.endPacket();
+  }
+  break;
   case SH2_GAME_ROTATION_VECTOR:
+  {
     Serial.print("Game Rotation Vector - r: ");
     Serial.print(bnoSensorValue.un.gameRotationVector.real);
     Serial.print(" i: ");
@@ -142,19 +171,20 @@ void loop()
     Serial.print(" k: ");
     Serial.println(bnoSensorValue.un.gameRotationVector.k);
 
-    OSCMessage msg("/lc/rotation");
+    OSCMessage rotationMsg("/lc/rotation");
 
-    msg.add(bnoSensorValue.un.gameRotationVector.i);
-    msg.add(bnoSensorValue.un.gameRotationVector.j);
-    msg.add(bnoSensorValue.un.gameRotationVector.k);
+    rotationMsg.add(bnoSensorValue.un.gameRotationVector.i);
+    rotationMsg.add(bnoSensorValue.un.gameRotationVector.j);
+    rotationMsg.add(bnoSensorValue.un.gameRotationVector.k);
 
     // udp.beginMulticast(IPAddress(192, 168, 1, 255), 6511);
     udp.beginPacket(IPAddress(192, 168, 1, 255), 6511);
-    msg.send(udp);
+    rotationMsg.send(udp);
     udp.endPacket();
     udp.beginPacket(IPAddress(192, 168, 1, 255), 6512);
-    msg.send(udp);
+    rotationMsg.send(udp);
     udp.endPacket();
-    break;
+  }
+  break;
   }
 }
