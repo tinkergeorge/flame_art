@@ -23,7 +23,8 @@ impl Face {
     pub fn new(
         vertex_indices: [usize; 4],
         vertices: &[Vector3<f32>; 32],
-        window: &mut Window,
+        parent: &mut SceneNode,
+        shaft_len: f32,
         quaternion_to_rotate_5_pyramid_to_top: &UnitQuaternion<f32>,
     ) -> Self {
         let center_vector =
@@ -33,7 +34,7 @@ impl Face {
                 + vertices[vertex_indices[2]]
                 + vertices[vertex_indices[3]])
                 / 4.;
-        let mut quad = window.add_quad_with_vertices(
+        let mut quad = parent.add_quad_with_vertices(
             vertex_indices
                 .iter()
                 .map(|vertex_index| Point3::<f32>::from(vertices[*vertex_index]))
@@ -44,8 +45,9 @@ impl Face {
         );
         quad.append_rotation(quaternion_to_rotate_5_pyramid_to_top);
         quad.set_color(random(), random(), random());
+        quad.append_translation(&Translation3::new(0., shaft_len, 0.));
 
-        let mut fire_cone = window.add_cone(0.5, 2.);
+        let mut fire_cone = parent.add_cone(0.5, 2.);
         fire_cone.append_rotation(
             &UnitQuaternion::rotation_between(&(-Vector3::y()), &center_vector).unwrap_or_else(
                 || UnitQuaternion::from_axis_angle(&Vector3::x_axis(), std::f32::consts::PI),
@@ -53,6 +55,7 @@ impl Face {
         );
         fire_cone.append_translation(&Translation3::from(center_vector * 1.5));
         fire_cone.append_rotation(quaternion_to_rotate_5_pyramid_to_top);
+        fire_cone.append_translation(&Translation3::new(0., shaft_len, 0.));
         fire_cone.set_points_size(10.0);
         fire_cone.set_lines_width(1.0);
         fire_cone.set_surface_rendering_activation(false);
@@ -145,32 +148,43 @@ fn main() {
         [28, 8, 2, 12],
     ];
 
+    let shaft_len = c2 * 8.;
+    let mut arm = window.add_group();
     let mut faces: [Face; 30] = face_vertex_indices.map(|indices| {
         Face::new(
             indices,
             &vertices,
-            &mut window,
+            &mut arm,
+            shaft_len,
             &quaternion_to_rotate_5_pyramid_to_top,
         )
     });
 
-    let cyl_len = c2 * 8.;
-    let mut arm = window.add_cylinder(c0 * 0.8, cyl_len);
-    arm.set_local_translation(Translation3::new(0., -cyl_len / 2., 0.));
-    arm.set_color(0.3, 0.3, 0.3);
+    let mut shaft = arm.add_cylinder(c0 * 0.8, shaft_len);
+    shaft.set_local_translation(Translation3::new(0., shaft_len / 2., 0.));
+    shaft.set_color(0.3, 0.3, 0.3);
 
     window.set_light(Light::StickToCamera);
 
-    let mut arc_ball_camera = ArcBall::new(Point3::new(0.0f32, 0., 25.), Point3::origin());
+    let mut arc_ball_camera = ArcBall::new(
+        Point3::new(0.0f32, 0., 25.),
+        Point3::new(0.0f32, shaft_len / 2., 0.0f32),
+    );
 
     let artnet_socket = create_socket(ARTNET_PORT);
     let osc_socket = create_socket(OSC_PORT);
+
+    // Note that this gravity is referring to the vector in the space of the simulation, not the
+    // exact values coming from the IMU. I.e., the simulation treats the Y axis as up while we are
+    // not yet sure what axis the IMU treats as up. That conversion will be done before writing to
+    // this value.
+    let mut gravity = Vector3::new(0., 9.8, 0.);
 
     while !window.should_close() {
         window.set_framerate_limit(Some(60));
         window.render_with_camera(&mut arc_ball_camera);
         receive_artnet(&mut faces, &artnet_socket);
-        receive_osc(&osc_socket);
+        receive_osc(&osc_socket, &mut gravity);
         faces.iter_mut().for_each(|face| {
             // Update concentration
             if face.switch {
@@ -180,12 +194,19 @@ fn main() {
                 // Decay concentration to zero
                 face.concentration *= 0.97;
             }
+            arm.set_local_rotation(
+                UnitQuaternion::rotation_between(&Vector3::y(), &gravity).unwrap_or_else(|| {
+                    UnitQuaternion::from_axis_angle(&Vector3::x_axis(), std::f32::consts::PI)
+                }),
+            );
 
             // Render
             let scale = 1. + (1. - face.concentration).powi(3);
             face.fire_cone.set_local_scale(scale, scale * 2., scale);
             face.fire_cone
                 .set_local_translation(Translation3::from(face.center_vector * (0.5 + scale)));
+            face.fire_cone
+                .append_translation(&Translation3::new(0., shaft_len, 0.));
             let color_strength = (face.concentration / face.flow).powi(3).min(1.).max(0.);
             face.fire_cone
                 .set_color(color_strength, 0.8 * color_strength, 0.2 * color_strength);
@@ -208,7 +229,7 @@ fn create_socket(port: u16) -> UdpSocket {
     }
 }
 
-fn receive_osc(socket: &UdpSocket) {
+fn receive_osc(socket: &UdpSocket, gravity: &mut Vector3<f32>) {
     let mut inbox = [0u8; 65507];
     let Ok((received_data_len, _sender_address)) = socket.recv_from(&mut inbox) else {
         // Received nothing
@@ -223,7 +244,10 @@ fn receive_osc(socket: &UdpSocket) {
         OscPacket::Message(msg) => match (msg.addr.as_str(), msg.args.as_slice()) {
             ("/LC/gravity", [OscType::Float(x), OscType::Float(y), OscType::Float(z)]) => {
                 println!("Gravity: ({}, {}, {})", x, y, z);
-        }
+                gravity.x = *y;
+                gravity.y = *x;
+                gravity.z = -*z;
+            }
             ("/LC/rotation", _) => {}
             _ => {}
         },

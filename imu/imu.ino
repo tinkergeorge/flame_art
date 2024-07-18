@@ -121,7 +121,7 @@ void tellBnoWhatReportsWeWant(void)
 
 void loop()
 {
-  delay(50);
+  delay(100);
 
   if (bno08x.wasReset())
   {
