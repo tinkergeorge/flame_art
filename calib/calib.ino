@@ -282,6 +282,21 @@ void setup()
 
 // void displayValves(bool force = 0);
 
+void printWiFiStatus()
+{
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
+}
+
 void loop()
 {
   if (artMode)
@@ -331,6 +346,7 @@ void loop()
     else
     {
       Serial.println("Wifi connected");
+      printWiFiStatus();
       artMode = false;
       artnetMode = true;
       beginArtnet();
@@ -692,10 +708,10 @@ void demo_multiwave()
 }
 
 // Depending on the compiler version used to compile, this function may cause compile error due to conflict with std::lerp
-float lerp(float a, float b, float t)
-{
-  return a + t * (b - a);
-}
+// float lerp(float a, float b, float t)
+// {
+//   return a + t * (b - a);
+// }
 
 void processCommand(String command)
 {
