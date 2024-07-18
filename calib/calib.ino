@@ -1,7 +1,16 @@
 #include <Adafruit_PWMServoDriver.h>
 // #include <Adafruit_GFX.h>
 // #include <Adafruit_SSD1306.h>
+
+// Uncomment the below line if using the test bench, which has a different i2c expander
+// #define TESTBENCH
+
+#ifdef TESTBENCH
 #include <PCF8575.h>
+#else
+#include <PCA9685.h>
+#include "src/lib/PCA9539.h"
+#endif
 
 #include <ArtnetWifi.h>
 
@@ -21,7 +30,11 @@ ArtnetWifi artnet;
 // Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // PCF8575 GPIO module
-PCF8575 pcf8575(0x20);
+// PCF8575 pcf8575(0x20);
+
+// PCA9539 i2c expander
+PCA9539 pca9539(0x74);
+
 
 // SERVOS
 const int NUM_VALVES = 10;
