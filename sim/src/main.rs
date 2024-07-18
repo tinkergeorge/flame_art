@@ -4,7 +4,7 @@ use artnet_protocol::ArtCommand;
 use kiss3d::{camera::ArcBall, light::Light, scene::SceneNode, window::Window};
 use nalgebra::{Point3, Translation3, UnitQuaternion, Vector3};
 use rand::random;
-use rosc::OscPacket;
+use rosc::{OscPacket, OscType};
 
 const ARTNET_PORT: u16 = 6454;
 const OSC_PORT: u16 = 6512;
@@ -220,10 +220,13 @@ fn receive_osc(socket: &UdpSocket) {
         return;
     };
     match osc_packet {
-        OscPacket::Message(msg) => {
-            println!("OSC address: {}", msg.addr);
-            println!("OSC arguments: {:?}", msg.args);
+        OscPacket::Message(msg) => match (msg.addr.as_str(), msg.args.as_slice()) {
+            ("/LC/gravity", [OscType::Float(x), OscType::Float(y), OscType::Float(z)]) => {
+                println!("Gravity: ({}, {}, {})", x, y, z);
         }
+            ("/LC/rotation", _) => {}
+            _ => {}
+        },
         OscPacket::Bundle(bundle) => {
             println!("OSC Bundle: {:?}", bundle);
         }
