@@ -17,9 +17,11 @@ int status = WL_IDLE_STATUS;
 // Create a secrets file with your network info that looks like:
 // #define IMU_SSID "my ssid"
 // #define IMU_PASS "password"
-#include "imu_secrets.h"
-char SSID[] = IMU_SSID;
-char PASS[] = IMU_PASS;
+// #include "imu_secrets.h"
+// char SSID[] = IMU_SSID;
+// char PASS[] = IMU_PASS;
+char SSID[] = "lightcurve";
+char PASS[] = "curvelight";
 
 WiFiUDP udp;
 
@@ -178,10 +180,10 @@ void loop()
     rotationMsg.add(bnoSensorValue.un.gameRotationVector.k);
 
     // udp.beginMulticast(IPAddress(192, 168, 1, 255), 6511);
-    udp.beginPacket(IPAddress(192, 168, 1, 255), 6511);
+    udp.beginPacket(IPAddress(192, 168, 13, 255), 6511);
     rotationMsg.send(udp);
     udp.endPacket();
-    udp.beginPacket(IPAddress(192, 168, 1, 255), 6512);
+    udp.beginPacket(IPAddress(192, 168, 13, 255), 6512);
     rotationMsg.send(udp);
     udp.endPacket();
   }
