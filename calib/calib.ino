@@ -8,7 +8,7 @@
 #ifdef TESTBENCH
 #include <PCF8575.h>
 #else
-#include <PCA9685.h>
+// #include <PCA9685.h>
 #include "src/lib/PCA9539.h"
 #endif
 
@@ -32,9 +32,11 @@ ArtnetWifi artnet;
 // PCF8575 GPIO module
 // PCF8575 pcf8575(0x20);
 
-// PCA9539 i2c expander
-PCA9539 pca9539(0x74);
+// PCA9539 i2c GPIO expander
+PCA9539 pca9539(0x77);
 
+// PCA9685 servo controller
+// PCA9685 pca9685();
 
 // SERVOS
 const int NUM_VALVES = 10;
@@ -139,7 +141,8 @@ void setSolenoidState(int valveNum, bool state)
   //   break;
   // }
 
-  pcf8575.write(valveNum, state); // valveNum is the pin number on PCF8575
+  // pcf8575.write(valveNum, state); // valveNum is the pin number on PCF8575
+  pca9539.digitalWrite(valveNum, state); // valveNum is the pin number on PCF8575
 }
 
 // This should be called repeatedly, with a delay of at least 1ms between calls, until
@@ -197,7 +200,24 @@ void setup()
   // Start trying to connect to wifi
   beginWifi();
 
-  pcf8575.begin(); // Initialize PCF8575
+  // pcf8575.begin(); // Initialize PCF8575
+
+  pca9539.pinMode(pca_A0, OUTPUT);
+  pca9539.pinMode(pca_A1, OUTPUT);
+  pca9539.pinMode(pca_A2, OUTPUT);
+  pca9539.pinMode(pca_A3, OUTPUT);
+  pca9539.pinMode(pca_A4, OUTPUT);
+  pca9539.pinMode(pca_A5, OUTPUT);
+  pca9539.pinMode(pca_A6, OUTPUT);
+  pca9539.pinMode(pca_A7, OUTPUT);
+  pca9539.pinMode(pca_B0, OUTPUT);
+  pca9539.pinMode(pca_B1, OUTPUT);
+  pca9539.pinMode(pca_B2, OUTPUT);
+  pca9539.pinMode(pca_B3, OUTPUT);
+  pca9539.pinMode(pca_B4, OUTPUT);
+  pca9539.pinMode(pca_B5, OUTPUT);
+  pca9539.pinMode(pca_B6, OUTPUT);
+  pca9539.pinMode(pca_B7, OUTPUT);
 
   // start display
   // while(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
