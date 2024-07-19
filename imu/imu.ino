@@ -125,6 +125,10 @@ void tellBnoWhatReportsWeWant(void)
   {
     Serial.println("Could not enable game rotation report");
   }
+  if (!bno08x.enableReport(SH2_GYROSCOPE_CALIBRATED))
+  {
+    Serial.println("Could not enable gyro report");
+  }
 }
 
 void loop()
@@ -184,6 +188,29 @@ void loop()
     msg.add(bnoSensorValue.un.gameRotationVector.i);
     msg.add(bnoSensorValue.un.gameRotationVector.j);
     msg.add(bnoSensorValue.un.gameRotationVector.k);
+
+    udp.beginPacket(targetIpAddress, 6511);
+    msg.send(udp);
+    udp.endPacket();
+    udp.beginPacket(targetIpAddress, 6512);
+    msg.send(udp);
+    udp.endPacket();
+  }
+  break;
+  case SH2_GYROSCOPE_CALIBRATED:
+  {
+    Serial.print("Gyroscope Vector - x: ");
+    Serial.print(bnoSensorValue.un.gyroscope.x);
+    Serial.print(" y: ");
+    Serial.print(bnoSensorValue.un.gyroscope.y);
+    Serial.print(" z: ");
+    Serial.println(bnoSensorValue.un.gyroscope.z);
+
+    OSCMessage msg("/LC/gyro");
+
+    msg.add(bnoSensorValue.un.gyroscope.x);
+    msg.add(bnoSensorValue.un.gyroscope.y);
+    msg.add(bnoSensorValue.un.gyroscope.z);
 
     udp.beginPacket(targetIpAddress, 6511);
     msg.send(udp);
