@@ -9,6 +9,10 @@
 
 #define BNO08X_RESET -1
 
+IPAddress ip(192, 168, 13, 211);
+IPAddress gateway(192, 168, 13, 1);
+IPAddress subnet(255, 255, 255, 0);
+
 Adafruit_BNO08x bno08x(BNO08X_RESET);
 sh2_SensorValue_t bnoSensorValue;
 
@@ -50,7 +54,9 @@ void setup(void)
     {
       Serial.print("Trying to connect to SSID: ");
       Serial.println(SSID);
+
       WiFi.begin(SSID, PASS);
+      WiFi.config(ip, gateway, subnet);
       checkCount = 25;
     }
 
@@ -136,6 +142,7 @@ void loop()
     return;
   }
 
+  IPAddress targetIpAddress(192, 168, 13, 255);
   switch (bnoSensorValue.sensorId)
   {
   case SH2_GRAVITY:
@@ -153,11 +160,11 @@ void loop()
     gravityMsg.add(bnoSensorValue.un.gameRotationVector.j);
     gravityMsg.add(bnoSensorValue.un.gameRotationVector.k);
 
-    // udp.beginMulticast(IPAddress(192, 168, 1, 255), 6511);
-    udp.beginPacket(IPAddress(192, 168, 1, 255), 6511);
+    // udp.beginMulticast(targetIpAddress, 6511);
+    udp.beginPacket(targetIpAddress, 6511);
     gravityMsg.send(udp);
     udp.endPacket();
-    udp.beginPacket(IPAddress(192, 168, 1, 255), 6512);
+    udp.beginPacket(targetIpAddress, 6512);
     gravityMsg.send(udp);
     udp.endPacket();
   }
@@ -179,11 +186,11 @@ void loop()
     rotationMsg.add(bnoSensorValue.un.gameRotationVector.j);
     rotationMsg.add(bnoSensorValue.un.gameRotationVector.k);
 
-    // udp.beginMulticast(IPAddress(192, 168, 1, 255), 6511);
-    udp.beginPacket(IPAddress(192, 168, 13, 255), 6511);
+    // udp.beginMulticast(targetIpAddress, 6511);
+    udp.beginPacket(targetIpAddress, 6511);
     rotationMsg.send(udp);
     udp.endPacket();
-    udp.beginPacket(IPAddress(192, 168, 13, 255), 6512);
+    udp.beginPacket(targetIpAddress, 6512);
     rotationMsg.send(udp);
     udp.endPacket();
   }
