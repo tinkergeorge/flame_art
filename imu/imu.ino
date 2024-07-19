@@ -117,13 +117,13 @@ void printWiFiStatus()
 void tellBnoWhatReportsWeWant(void)
 {
   Serial.println("Setting desired reports");
-  // if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR))
-  // {
-  //   Serial.println("Could not enable game rotation report");
-  // }
   if (!bno08x.enableReport(SH2_GRAVITY))
   {
     Serial.println("Could not enable gravity report");
+  }
+  if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR))
+  {
+    Serial.println("Could not enable game rotation report");
   }
 }
 
@@ -154,18 +154,17 @@ void loop()
     Serial.print(" z: ");
     Serial.println(bnoSensorValue.un.gravity.z);
 
-    OSCMessage gravityMsg("/LC/gravity");
+    OSCMessage msg("/LC/gravity");
 
-    gravityMsg.add(bnoSensorValue.un.gameRotationVector.i);
-    gravityMsg.add(bnoSensorValue.un.gameRotationVector.j);
-    gravityMsg.add(bnoSensorValue.un.gameRotationVector.k);
+    msg.add(bnoSensorValue.un.gravity.x);
+    msg.add(bnoSensorValue.un.gravity.y);
+    msg.add(bnoSensorValue.un.gravity.z);
 
-    // udp.beginMulticast(targetIpAddress, 6511);
     udp.beginPacket(targetIpAddress, 6511);
-    gravityMsg.send(udp);
+    msg.send(udp);
     udp.endPacket();
     udp.beginPacket(targetIpAddress, 6512);
-    gravityMsg.send(udp);
+    msg.send(udp);
     udp.endPacket();
   }
   break;
@@ -180,18 +179,17 @@ void loop()
     Serial.print(" k: ");
     Serial.println(bnoSensorValue.un.gameRotationVector.k);
 
-    OSCMessage rotationMsg("/LC/rotation");
+    OSCMessage msg("/LC/rotation");
 
-    rotationMsg.add(bnoSensorValue.un.gameRotationVector.i);
-    rotationMsg.add(bnoSensorValue.un.gameRotationVector.j);
-    rotationMsg.add(bnoSensorValue.un.gameRotationVector.k);
+    msg.add(bnoSensorValue.un.gameRotationVector.i);
+    msg.add(bnoSensorValue.un.gameRotationVector.j);
+    msg.add(bnoSensorValue.un.gameRotationVector.k);
 
-    // udp.beginMulticast(targetIpAddress, 6511);
     udp.beginPacket(targetIpAddress, 6511);
-    rotationMsg.send(udp);
+    msg.send(udp);
     udp.endPacket();
     udp.beginPacket(targetIpAddress, 6512);
-    rotationMsg.send(udp);
+    msg.send(udp);
     udp.endPacket();
   }
   break;
