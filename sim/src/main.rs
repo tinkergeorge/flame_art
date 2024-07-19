@@ -248,8 +248,12 @@ fn receive_osc(socket: &UdpSocket, gravity: &mut Vector3<f32>) {
                 gravity.y = *x;
                 gravity.z = -*z;
             }
-            ("/LC/rotation", _) => {}
-            _ => {}
+            ("/LC/rotation", _) => {
+                println!("Rotation");
+            }
+            _ => {
+                println!("other OSC msg");
+            }
         },
         OscPacket::Bundle(bundle) => {
             println!("OSC Bundle: {:?}", bundle);
