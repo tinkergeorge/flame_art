@@ -80,19 +80,19 @@ int status = WL_IDLE_STATUS;
 // char SSID[] = "Verizon_VJ6D43";
 // char PASS[] = "TheNet4me!";
 
-//Tinker's House
-IPAddress ip(192, 168, 1, 30);
-IPAddress gateway(192, 168, 1, 254);
-IPAddress subnet(255, 255, 255, 0);
-char SSID[] = "tinker and teatime";
-char PASS[] = "andtrextoo";
-
-// //LightCurve
-// IPAddress ip(192, 168, 13, 30);
-// IPAddress gateway(192, 168, 13, 1);
+// //Tinker's House
+// IPAddress ip(192, 168, 1, 30);
+// IPAddress gateway(192, 168, 1, 254);
 // IPAddress subnet(255, 255, 255, 0);
-// char SSID[] = "lightcurve";
-// char PASS[] = "curvelight";
+// char SSID[] = "tinker and teatime";
+// char PASS[] = "andtrextoo";
+
+//LightCurve
+IPAddress ip(192, 168, 13, 30);
+IPAddress gateway(192, 168, 13, 1);
+IPAddress subnet(255, 255, 255, 0);
+char SSID[] = "lightcurve";
+char PASS[] = "curvelight";
 
 WiFiUDP udp;
 unsigned long lastUDPPacketSent = 0;  //timestamp at which last UDP packet was sent
